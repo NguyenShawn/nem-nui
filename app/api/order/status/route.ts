@@ -28,12 +28,19 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       success: true,
       code: order.code,
       status: order.status,
+      cancelReason: order.cancel_reason || null,
+      momoConfirmed: order.momo_confirmed || false,
       paymentMethod: order.payment_method,
     });
+
+    res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.headers.set("Pragma", "no-cache");
+    res.headers.set("Expires", "0");
+    return res;
   } catch (error) {
     console.error("Lỗi GET /api/order/status:", error);
     return NextResponse.json(

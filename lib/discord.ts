@@ -21,7 +21,7 @@ export async function sendDiscordOrderNotification(order: DiscordOrderData) {
     const itemsList = order.items
       .map((i) => `• **${i.qty}x** ${i.name} - ${new Intl.NumberFormat("vi-VN").format(i.price * i.qty)}đ`)
       .join("\n");
-    const paymentText = order.paymentMethod === "momo" ? "🟣 MoMo (Chuyển khoản)" : "💵 COD (Tiền mặt)";
+    const paymentText = order.paymentMethod === "momo" ? "🟣 MoMo (Chờ khách chuyển & đối soát)" : "💵 COD (Tiền mặt)";
 
     const body = {
       content: `🚨 **CÓ ĐƠN HÀNG MỚI!** Mã đơn: \`#${order.orderCode}\``,
@@ -152,4 +152,113 @@ export async function sendDiscordLeadNotification(lead: DiscordLeadData) {
     console.warn("[Discord] Lỗi gửi thông báo Lead:", err);
   }
 }
+
+/**
+ * Gửi thông báo đơn hàng đã bị hủy tới kênh Discord qua Webhook
+ */
+export interface DiscordOrderCancelledData {
+  orderCode: string;
+  customerName: string;
+  phone: string;
+  address: string;
+  reason: string;
+  items: { name: string; qty: number; price: number }[];
+  total: number;
+  paymentMethod: string;
+  note?: string | null;
+}
+
+export async function sendDiscordOrderCancelledNotification(order: DiscordOrderCancelledData) {
+  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+  if (!webhookUrl || !webhookUrl.trim()) return;
+
+  try {
+    const itemsList = order.items
+      .map((i) => `• **${i.qty}x** ${i.name} - ${new Intl.NumberFormat("vi-VN").format(i.price * i.qty)}đ`)
+      .join("\n");
+    const paymentText = order.paymentMethod === "momo" ? "🟣 MoMo (Chuyển khoản)" : "💵 COD (Tiền mặt)";
+
+    const body = {
+      content: `❌ **ĐƠN HÀNG ĐÃ BỊ HỦY!** Mã đơn: \`#${order.orderCode}\``,
+      embeds: [
+        {
+          title: `🚫 ĐƠN HÀNG ĐÃ HỦY: #${order.orderCode}`,
+          description: `Đơn hàng đã được cập nhật trạng thái **Đã hủy** bởi nhân viên quản lý.`,
+          color: 0xef4444, // Red
+          fields: [
+            { name: "Khách hàng", value: order.customerName, inline: true },
+            { name: "Số điện thoại", value: `[${order.phone}](tel:${order.phone})`, inline: true },
+            { name: "Hình thức TT", value: paymentText, inline: true },
+            { name: "⚠️ LÝ DO HỦY ĐƠN", value: `**${order.reason}**`, inline: false },
+            { name: "Địa chỉ giao hàng", value: order.address, inline: false },
+            { name: "Món đã đặt", value: itemsList || "Không có", inline: false },
+            {
+              name: "Tổng tiền đơn",
+              value: `${new Intl.NumberFormat("vi-VN").format(order.total)}đ`,
+              inline: true,
+            },
+          ],
+          footer: { text: "Nem Núi • Bếp nướng than hoa | Đơn đã hủy" },
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    };
+
+    await fetch(webhookUrl.trim(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    console.warn("[Discord] Lỗi gửi thông báo hủy đơn:", err);
+  }
+}
+
+/**
+ * Gửi thông báo khi khách hàng xác nhận đã chuyển tiền MoMo
+ */
+export interface DiscordMomoPaidData {
+  orderCode: string;
+  customerName: string;
+  phone: string;
+  total: number;
+}
+
+export async function sendDiscordMomoPaidNotification(data: DiscordMomoPaidData) {
+  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+  if (!webhookUrl || !webhookUrl.trim()) return;
+
+  try {
+    const body = {
+      content: `🟣 **KHÁCH BÁO ĐÃ CHUYỂN TIỀN MOMO!** Mã đơn: \`#${data.orderCode}\``,
+      embeds: [
+        {
+          title: `📱 Khách Xác Nhận Đã Chuyển Tiền #${data.orderCode}`,
+          description: `Khách hàng vừa bấm nút **"Tôi đã chuyển tiền thành công"**. Vui lòng kiểm tra app MoMo để đối soát và bấm **"Xác nhận nhận đơn"** trên màn hình Bếp!`,
+          color: 0xa855f7, // Purple MoMo
+          fields: [
+            { name: "Khách hàng", value: data.customerName, inline: true },
+            { name: "Số điện thoại", value: `[${data.phone}](tel:${data.phone})`, inline: true },
+            {
+              name: "Số tiền cần nhận",
+              value: `**${new Intl.NumberFormat("vi-VN").format(data.total)}đ**`,
+              inline: true,
+            },
+          ],
+          footer: { text: "Nem Núi • Vui lòng kiểm tra app MoMo" },
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    };
+
+    await fetch(webhookUrl.trim(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    console.warn("[Discord] Lỗi gửi thông báo MoMo paid:", err);
+  }
+}
+
 

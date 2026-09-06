@@ -94,19 +94,33 @@ export async function getAllOrders(): Promise<OrderRecord[]> {
 
       if (!error && data) {
         // Ánh xạ lại tên cột từ DB (snake_case)
-        return data.map((item: any) => ({
-          id: item.id,
-          code: item.code,
-          customer_name: item.customer_name,
-          phone: item.phone,
-          address: item.address,
-          note: item.note,
-          items: item.items,
-          total: item.total,
-          payment_method: item.payment_method,
-          status: item.status as OrderStatus,
-          created_at: item.created_at,
-        }));
+        return data.map((item: any) => {
+          let extractedCancelReason = item.cancel_reason || null;
+          if (!extractedCancelReason && item.note && item.note.includes("[Lý do hủy:")) {
+            const match = item.note.match(/\[Lý do hủy:\s*([^\]]+)\]/);
+            if (match) extractedCancelReason = match[1].trim();
+          }
+
+          const isMomoConfirmed = Boolean(
+            item.momo_confirmed || (item.note && item.note.includes("[Đã báo CK MoMo]"))
+          );
+
+          return {
+            id: item.id,
+            code: item.code,
+            customer_name: item.customer_name,
+            phone: item.phone,
+            address: item.address,
+            note: item.note,
+            items: item.items,
+            total: item.total,
+            payment_method: item.payment_method,
+            status: item.status as OrderStatus,
+            cancel_reason: extractedCancelReason,
+            momo_confirmed: isMomoConfirmed,
+            created_at: item.created_at,
+          };
+        });
       }
       console.error("Lỗi lấy đơn từ Supabase, chuyển sang đọc local:", error);
     } catch (ex) {
@@ -123,7 +137,8 @@ export async function getAllOrders(): Promise<OrderRecord[]> {
  */
 export async function updateOrderStatusInDb(
   code: string,
-  newStatus: OrderStatus
+  newStatus: OrderStatus,
+  cancelReason?: string | null
 ): Promise<boolean> {
   let success = false;
 
@@ -132,6 +147,13 @@ export async function updateOrderStatusInDb(
   const orderIndex = localOrders.findIndex((o) => o.code === code);
   if (orderIndex !== -1) {
     localOrders[orderIndex].status = newStatus;
+    if (cancelReason) {
+      localOrders[orderIndex].cancel_reason = cancelReason;
+      const currentNote = localOrders[orderIndex].note || "";
+      localOrders[orderIndex].note = currentNote
+        ? `${currentNote} • [Lý do hủy: ${cancelReason}]`
+        : `[Lý do hủy: ${cancelReason}]`;
+    }
     writeLocalOrders(localOrders);
     success = true;
   }
@@ -139,9 +161,18 @@ export async function updateOrderStatusInDb(
   // 2. Cập nhật Supabase
   if (isSupabaseConfigured && supabaseAdmin) {
     try {
+      const updatePayload: any = { status: newStatus };
+      if (cancelReason) {
+        const currentOrder = await getOrderByCode(code);
+        const currentNote = currentOrder?.note || "";
+        updatePayload.note = currentNote
+          ? `${currentNote} • [Lý do hủy: ${cancelReason}]`
+          : `[Lý do hủy: ${cancelReason}]`;
+      }
+
       const { error } = await supabaseAdmin
         .from("orders")
-        .update({ status: newStatus })
+        .update(updatePayload)
         .eq("code", code);
 
       if (error) {
@@ -158,6 +189,38 @@ export async function updateOrderStatusInDb(
 }
 
 /**
+ * Hàm ghi nhận khách hàng đã bấm xác nhận chuyển tiền MoMo
+ */
+export async function markMomoPaymentConfirmed(code: string): Promise<boolean> {
+  const localOrders = readLocalOrders();
+  const orderIndex = localOrders.findIndex((o) => o.code === code);
+  if (orderIndex !== -1) {
+    localOrders[orderIndex].momo_confirmed = true;
+    writeLocalOrders(localOrders);
+  }
+
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const currentOrder = await getOrderByCode(code);
+      const currentNote = currentOrder?.note || "";
+      if (!currentNote.includes("[Đã báo CK MoMo]")) {
+        const updatedNote = currentNote
+          ? `${currentNote} • [Đã báo CK MoMo]`
+          : `[Đã báo CK MoMo]`;
+        await supabaseAdmin
+          .from("orders")
+          .update({ note: updatedNote })
+          .eq("code", code);
+      }
+    } catch (e) {
+      console.warn("Lỗi lưu momo confirmed:", e);
+    }
+  }
+
+  return true;
+}
+
+/**
  * Hàm lấy 1 đơn hàng cụ thể theo mã đơn
  */
 export async function getOrderByCode(code: string): Promise<OrderRecord | null> {
@@ -171,6 +234,16 @@ export async function getOrderByCode(code: string): Promise<OrderRecord | null> 
         .single();
 
       if (!error && data) {
+        let extractedCancelReason = data.cancel_reason || null;
+        if (!extractedCancelReason && data.note && data.note.includes("[Lý do hủy:")) {
+          const match = data.note.match(/\[Lý do hủy:\s*([^\]]+)\]/);
+          if (match) extractedCancelReason = match[1].trim();
+        }
+
+        const isMomoConfirmed = Boolean(
+          data.momo_confirmed || (data.note && data.note.includes("[Đã báo CK MoMo]"))
+        );
+
         return {
           id: data.id,
           code: data.code,
@@ -182,6 +255,8 @@ export async function getOrderByCode(code: string): Promise<OrderRecord | null> 
           total: data.total,
           payment_method: data.payment_method,
           status: data.status as OrderStatus,
+          cancel_reason: extractedCancelReason,
+          momo_confirmed: isMomoConfirmed,
           created_at: data.created_at,
         };
       }

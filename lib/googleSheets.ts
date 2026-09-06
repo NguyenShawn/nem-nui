@@ -101,7 +101,7 @@ export async function sendOrderToGoogleSheets(
       .map((i) => `${i.qty}x ${i.name}`)
       .join(", ");
 
-    const paymentLabel = order.paymentMethod === "momo" ? "MoMo" : "COD (Tiền mặt)";
+    const paymentLabel = order.paymentMethod === "momo" ? "MoMo (Chờ khách CK)" : "COD (Tiền mặt)";
 
     const payload = {
       fullName: `[ĐƠN LẺ - #${order.orderCode}] ${order.customerName}`,

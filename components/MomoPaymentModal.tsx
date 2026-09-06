@@ -24,6 +24,23 @@ export function MomoPaymentModal({
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  const handleConfirmClick = async () => {
+    setIsConfirming(true);
+    try {
+      await fetch("/api/order/confirm-momo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: orderCode }),
+      });
+    } catch (e) {
+      console.warn("Lỗi gửi confirm momo:", e);
+    } finally {
+      setIsConfirming(false);
+      onPaidConfirmed();
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -152,11 +169,18 @@ export function MomoPaymentModal({
 
             {/* Nút Tôi đã chuyển tiền */}
             <button
-              onClick={onPaidConfirmed}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-[0.98] text-white font-black text-sm rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all"
+              onClick={handleConfirmClick}
+              disabled={isConfirming}
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-70 active:scale-[0.98] text-white font-black text-sm rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all"
             >
-              <span>Tôi đã chuyển tiền thành công</span>
-              <ArrowRight className="w-4 h-4" />
+              {isConfirming ? (
+                <span>Đang gửi thông báo đến bếp...</span>
+              ) : (
+                <>
+                  <span>Tôi đã chuyển tiền thành công</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </div>
         </div>

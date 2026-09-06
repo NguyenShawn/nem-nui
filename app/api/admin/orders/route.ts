@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAllOrders, updateOrderStatusInDb, getOrderByCode } from "@/lib/orderDb";
 import { SHOP_CONFIG } from "@/config/shop";
 import { OrderStatus } from "@/types/order";
-import { sendDiscordOrderCompletedNotification } from "@/lib/discord";
+import {
+  sendDiscordOrderCompletedNotification,
+  sendDiscordOrderCancelledNotification,
+} from "@/lib/discord";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +54,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { code, status, pin } = body;
+    const { code, status, pin, reason } = body;
 
     // Xác thực PIN từ body
     if (pin !== SHOP_CONFIG.adminPin) {
@@ -93,7 +96,7 @@ export async function PATCH(req: NextRequest) {
 
     const previousStatus = currentOrder.status;
 
-    const success = await updateOrderStatusInDb(code, status);
+    const success = await updateOrderStatusInDb(code, status, reason);
     if (!success) {
       return NextResponse.json(
         { error: "Không tìm thấy đơn hàng hoặc cập nhật thất bại." },
@@ -117,6 +120,27 @@ export async function PATCH(req: NextRequest) {
         total: currentOrder.total,
         paymentMethod: currentOrder.payment_method,
       }).catch((err) => console.warn("[Discord] Lỗi gửi thông báo hoàn tất đơn:", err));
+    }
+
+    // Gửi thông báo Discord khi đơn hàng bị hủy
+    if (status === "cancelled" && previousStatus !== "cancelled") {
+      const cancelReasonText =
+        reason && String(reason).trim() ? String(reason).trim() : "Quán không nêu lý do cụ thể";
+      sendDiscordOrderCancelledNotification({
+        orderCode: currentOrder.code,
+        customerName: currentOrder.customer_name,
+        phone: currentOrder.phone,
+        address: currentOrder.address,
+        reason: cancelReasonText,
+        note: currentOrder.note,
+        items: currentOrder.items.map((it) => ({
+          name: it.name,
+          qty: it.qty,
+          price: it.price,
+        })),
+        total: currentOrder.total,
+        paymentMethod: currentOrder.payment_method,
+      }).catch((err) => console.warn("[Discord] Lỗi gửi thông báo hủy đơn:", err));
     }
 
     return NextResponse.json({

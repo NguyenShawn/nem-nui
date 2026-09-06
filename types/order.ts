@@ -49,6 +49,8 @@ export interface OrderRecord {
   total: number;
   payment_method: PaymentMethod;
   status: OrderStatus;
+  cancel_reason?: string | null;
+  momo_confirmed?: boolean;
   created_at?: string;
 }
 

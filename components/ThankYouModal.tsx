@@ -42,25 +42,36 @@ export function ThankYouModal({
   onResetOrder,
 }: ThankYouModalProps) {
   const [currentStatus, setCurrentStatus] = useState<OrderStatus>("new");
+  const [cancelReason, setCancelReason] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Tự động kiểm tra trạng thái đơn hàng mỗi 4 giây
+  // Tự động kiểm tra trạng thái đơn hàng mỗi 3 giây (chống cache triệt để)
   useEffect(() => {
     if (!isOpen || !orderCode) return;
 
     // Reset status về mặc định lúc mới mở
     setCurrentStatus("new");
+    setCancelReason(null);
     setErrorMessage("");
 
     const fetchStatus = async () => {
       try {
-        const response = await fetch(`/api/order/status?code=${orderCode}`);
+        const response = await fetch(`/api/order/status?code=${encodeURIComponent(orderCode)}&t=${Date.now()}`, {
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+          },
+        });
         if (!response.ok) {
           throw new Error("Không thể kiểm tra trạng thái đơn.");
         }
         const data = await response.json();
         if (data.success && data.status) {
           setCurrentStatus(data.status);
+          if (data.cancelReason) {
+            setCancelReason(data.cancelReason);
+          }
         }
       } catch (err: any) {
         console.error("Lỗi cập nhật tiến độ đơn hàng:", err);
@@ -70,7 +81,7 @@ export function ThankYouModal({
     // Chạy ngay lần đầu
     fetchStatus();
 
-    const interval = setInterval(fetchStatus, 4000);
+    const interval = setInterval(fetchStatus, 3000);
     return () => clearInterval(interval);
   }, [isOpen, orderCode]);
 
@@ -98,7 +109,11 @@ export function ThankYouModal({
 
   // Định nghĩa các bước hiển thị
   const steps = [
-    { label: "Đã gửi", desc: "Chờ xác nhận", icon: Clock },
+    {
+      label: paymentMethod === "momo" && currentStatus === "new" ? "Chờ duyệt MoMo" : "Đã gửi",
+      desc: paymentMethod === "momo" && currentStatus === "new" ? "Đang đối soát" : "Chờ xác nhận",
+      icon: Clock,
+    },
     { label: "Bếp làm", desc: "Chế biến nem", icon: Utensils },
     { label: "Đang giao", desc: "Shipper đi giao", icon: Compass },
     { label: "Hoàn tất", desc: "Ngon miệng!", icon: CheckCircle2 },
@@ -114,23 +129,43 @@ export function ThankYouModal({
           
           {/* Header Banner theo trạng thái */}
           {currentStatus === "cancelled" ? (
-            <div className="p-6 text-center bg-gradient-to-br from-slate-700 to-slate-800 text-white space-y-2">
-              <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center mx-auto shadow-inner">
+            <div className="p-6 text-center bg-gradient-to-br from-rose-600 via-red-600 to-rose-700 text-white space-y-2.5">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center mx-auto shadow-inner border border-white/30">
                 <XCircle className="w-10 h-10 text-white" />
               </div>
-              <h3 className="text-xl sm:text-2xl font-black">Đơn hàng đã bị hủy</h3>
-              <p className="text-slate-300 text-xs sm:text-sm font-medium">
-                Đơn hàng <span className="font-mono font-bold bg-white/20 px-2 py-0.5 rounded-lg">#{orderCode}</span> đã được hủy từ phía quán ăn.
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight">Đơn hàng đã bị hủy</h3>
+              <p className="text-rose-100 text-xs sm:text-sm font-medium">
+                Mã đơn: <span className="font-mono font-bold bg-white/20 px-2 py-0.5 rounded-lg text-white">#{orderCode}</span>
+              </p>
+              
+              {/* Box lý do hủy rõ ràng */}
+              <div className="bg-black/20 backdrop-blur-md border border-white/25 rounded-2xl p-3.5 text-left mt-2 shadow-inner">
+                <span className="text-[10px] font-black uppercase tracking-wider text-rose-200 block mb-1">
+                  LÝ DO HỦY TỪ QUÁN:
+                </span>
+                <span className="text-sm font-bold text-white block">
+                  {cancelReason || "Quán chưa thể tiếp nhận đơn hàng này."}
+                </span>
+              </div>
+            </div>
+          ) : currentStatus === "new" && paymentMethod === "momo" ? (
+            <div className="p-6 text-center bg-gradient-to-br from-purple-700 via-purple-600 to-indigo-700 text-white space-y-2">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center mx-auto shadow-inner border border-white/30">
+                <Clock className="w-9 h-9 text-white animate-spin" style={{ animationDuration: "8s" }} />
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black">Đang chờ quán kiểm tra MoMo</h3>
+              <p className="text-purple-100 text-xs sm:text-sm font-medium">
+                Đơn <span className="font-mono font-bold bg-white/20 px-2 py-0.5 rounded-lg text-white">#{orderCode}</span> • Nhân viên đang đối soát số tiền chuyển khoản
               </p>
             </div>
           ) : (
             <div className="p-6 text-center bg-gradient-to-br from-emerald-600 to-teal-700 text-white space-y-2">
-              <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center mx-auto shadow-inner">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center mx-auto shadow-inner border border-white/30">
                 <CheckCircle2 className="w-10 h-10 text-white" />
               </div>
               <h3 className="text-xl sm:text-2xl font-black">Đặt hàng thành công!</h3>
               <p className="text-emerald-100 text-xs sm:text-sm font-medium">
-                Đơn <span className="font-mono font-bold bg-white/20 px-2 py-0.5 rounded-lg">#{orderCode}</span> đã gửi trực tiếp đến bếp!
+                Đơn <span className="font-mono font-bold bg-white/20 px-2 py-0.5 rounded-lg text-white">#{orderCode}</span> đã gửi trực tiếp đến bếp!
               </p>
             </div>
           )}
@@ -189,7 +224,19 @@ export function ThankYouModal({
             )}
 
             {/* Thông báo mô tả theo trạng thái */}
-            {currentStatus === "new" && (
+            {currentStatus === "new" && paymentMethod === "momo" && (
+              <div className="bg-purple-50 border border-purple-200 rounded-2xl p-3.5 flex items-start gap-3 text-xs text-purple-900 animate-pulse">
+                <Clock className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block text-purple-950 font-bold mb-0.5">
+                    Quán đang kiểm tra thanh toán MoMo
+                  </strong>
+                  Bạn đã xác nhận chuyển tiền. Nhân viên quán đang kiểm tra giao dịch trên app MoMo. Ngay khi tiền vào tài khoản, bếp sẽ lập tức nướng nem nóng hổi!
+                </div>
+              </div>
+            )}
+
+            {currentStatus === "new" && paymentMethod === "cod" && (
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex items-start gap-3 text-xs text-amber-900">
                 <PhoneCall className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                 <div>
@@ -238,14 +285,26 @@ export function ThankYouModal({
             )}
 
             {currentStatus === "cancelled" && (
-              <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 flex items-start gap-3 text-xs text-rose-900">
-                <XCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                <div>
-                  <strong className="block text-rose-950 font-bold mb-0.5">
-                    Đơn hàng bị từ chối
-                  </strong>
-                  Quán không thể thực hiện đơn hàng này (có thể do quá tải hoặc ngoài khu vực giao). Vui lòng gọi trực tiếp hotline để quán hỗ trợ bạn.
+              <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 space-y-2.5 text-xs text-rose-900">
+                <div className="flex items-start gap-2.5">
+                  <XCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block text-rose-950 font-bold text-sm">
+                      Đơn hàng đã bị hủy
+                    </strong>
+                    <p className="text-rose-800 text-xs mt-0.5">
+                      Lý do: <span className="font-bold text-rose-950">{cancelReason || "Quán chưa thể thực hiện đơn này"}</span>
+                    </p>
+                  </div>
                 </div>
+
+                <a
+                  href={`tel:${SHOP_CONFIG.phone}`}
+                  className="w-full py-2.5 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                >
+                  <PhoneCall className="w-3.5 h-3.5" />
+                  <span>Gọi Hotline hỗ trợ / Hoàn tiền: {SHOP_CONFIG.displayPhone}</span>
+                </a>
               </div>
             )}
 

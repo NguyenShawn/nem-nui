@@ -27,6 +27,7 @@ import {
   X,
   Image as ImageIcon,
   Tag,
+  AlertTriangle,
 } from "lucide-react";
 import { OrderRecord, OrderStatus } from "@/types/order";
 import { MenuItem, Category, CATEGORIES, MENU_ITEMS } from "@/data/menu";
@@ -73,6 +74,21 @@ export default function StoreDashboard() {
 
   // Modal xác nhận làm mới dữ liệu
   const [isReloadModalOpen, setIsReloadModalOpen] = useState(false);
+
+  // State Modal Hủy Đơn Hàng
+  const [cancellingOrder, setCancellingOrder] = useState<OrderRecord | null>(null);
+  const [cancelReasonOption, setCancelReasonOption] = useState<string>("Chưa nhận được tiền chuyển khoản MoMo");
+  const [customCancelReason, setCustomCancelReason] = useState<string>("");
+  const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
+
+  const CANCEL_REASONS = [
+    "Chưa nhận được tiền chuyển khoản MoMo",
+    "Quán đã hết món / hết nguyên liệu",
+    "Không liên lạc được với khách hàng qua SĐT",
+    "Khách đổi ý / yêu cầu hủy đơn",
+    "Địa chỉ giao hàng nằm ngoài bán kính giao",
+    "Lý do khác...",
+  ];
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -241,17 +257,29 @@ export default function StoreDashboard() {
   };
 
   // Cập nhật trạng thái đơn hàng
-  const handleUpdateOrderStatus = async (code: string, nextStatus: OrderStatus) => {
+  const handleUpdateOrderStatus = async (
+    code: string,
+    nextStatus: OrderStatus,
+    reason?: string
+  ) => {
     try {
       const response = await fetch("/api/admin/orders", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, status: nextStatus, pin }),
+        body: JSON.stringify({ code, status: nextStatus, pin, reason }),
       });
       const data = await response.json();
       if (data.success) {
         setOrders((prev) =>
-          prev.map((o) => (o.code === code ? { ...o, status: nextStatus } : o))
+          prev.map((o) =>
+            o.code === code
+              ? {
+                  ...o,
+                  status: nextStatus,
+                  cancel_reason: reason || o.cancel_reason,
+                }
+              : o
+          )
         );
         showToast(`Đã cập nhật đơn #${code}`);
       } else {
@@ -260,6 +288,38 @@ export default function StoreDashboard() {
     } catch (err) {
       console.error(err);
       alert("Lỗi kết nối khi cập nhật đơn");
+    }
+  };
+
+  const handleOpenCancelModal = (order: OrderRecord) => {
+    setCancellingOrder(order);
+    if (order.payment_method === "momo") {
+      setCancelReasonOption("Chưa nhận được tiền chuyển khoản MoMo");
+    } else {
+      setCancelReasonOption("Quán đã hết món / hết nguyên liệu");
+    }
+    setCustomCancelReason("");
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancellingOrder) return;
+
+    let finalReason = cancelReasonOption;
+    if (cancelReasonOption === "Lý do khác...") {
+      if (!customCancelReason.trim()) {
+        alert("Vui lòng nhập lý do hủy đơn cụ thể.");
+        return;
+      }
+      finalReason = customCancelReason.trim();
+    }
+
+    setIsSubmittingCancel(true);
+    try {
+      await handleUpdateOrderStatus(cancellingOrder.code, "cancelled", finalReason);
+      setCancellingOrder(null);
+      setCustomCancelReason("");
+    } finally {
+      setIsSubmittingCancel(false);
     }
   };
 
@@ -871,7 +931,7 @@ export default function StoreDashboard() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 pt-1">
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
                           <span className="text-[10px] text-slate-500 font-bold uppercase">Thanh toán:</span>
                           <span
                             className={`px-2 py-0.5 rounded-lg font-bold text-[10px] border ${
@@ -882,6 +942,17 @@ export default function StoreDashboard() {
                           >
                             {order.payment_method === "momo" ? "MoMo QR" : "COD (Tiền mặt)"}
                           </span>
+                          {order.payment_method === "momo" && (
+                            order.momo_confirmed ? (
+                              <span className="bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-lg font-bold text-[10px] flex items-center gap-1 animate-pulse">
+                                🟣 Khách báo ĐÃ CHUYỂN TIỀN (Cần đối soát)
+                              </span>
+                            ) : (
+                              <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-lg font-bold text-[10px]">
+                                ⏳ Chờ khách chuyển MoMo
+                              </span>
+                            )
+                          )}
                         </div>
                       </div>
 
@@ -897,11 +968,7 @@ export default function StoreDashboard() {
                               <span>Duyệt & Làm món</span>
                             </button>
                             <button
-                              onClick={() => {
-                                if (confirm(`Bạn chắc chắn muốn hủy đơn hàng #${order.code}?`)) {
-                                  handleUpdateOrderStatus(order.code, "cancelled");
-                                }
-                              }}
+                              onClick={() => handleOpenCancelModal(order)}
                               className="py-2.5 px-3.5 bg-slate-800 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-900/50 text-slate-400 hover:text-rose-400 text-xs font-bold rounded-xl transition-all"
                             >
                               Hủy đơn
@@ -918,11 +985,7 @@ export default function StoreDashboard() {
                               <span>Giao hàng đi</span>
                             </button>
                             <button
-                              onClick={() => {
-                                if (confirm(`Hủy đơn hàng #${order.code}?`)) {
-                                  handleUpdateOrderStatus(order.code, "cancelled");
-                                }
-                              }}
+                              onClick={() => handleOpenCancelModal(order)}
                               className="py-2.5 px-3.5 bg-slate-800 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-900/50 text-slate-400 hover:text-rose-400 text-xs font-bold rounded-xl transition-all"
                             >
                               Hủy
@@ -948,9 +1011,16 @@ export default function StoreDashboard() {
                         )}
 
                         {order.status === "cancelled" && (
-                          <div className="w-full text-center py-2 bg-slate-950 text-slate-500 text-xs font-bold rounded-xl border border-slate-850 flex items-center justify-center gap-1">
-                            <XCircle className="w-3.5 h-3.5" />
-                            <span>Đơn đã bị hủy</span>
+                          <div className="w-full py-2.5 px-3 bg-rose-950/30 text-rose-400 text-xs font-medium rounded-xl border border-rose-900/30 space-y-1">
+                            <div className="flex items-center justify-center gap-1 font-bold text-rose-300">
+                              <XCircle className="w-3.5 h-3.5" />
+                              <span>Đơn đã bị hủy</span>
+                            </div>
+                            {order.cancel_reason && (
+                              <div className="text-[11px] text-center text-rose-200 bg-rose-950/60 py-1.5 px-2 rounded-lg border border-rose-900/40">
+                                Lý do: <span className="font-bold text-white">{order.cancel_reason}</span>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1349,6 +1419,115 @@ export default function StoreDashboard() {
                 >
                   <RotateCw className="w-3.5 h-3.5" />
                   <span>Xác nhận</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL CHỌN LÝ DO HỦY ĐƠN HÀNG */}
+      {/* ========================================================================= */}
+      {cancellingOrder && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div
+            onClick={() => !isSubmittingCancel && setCancellingOrder(null)}
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="min-h-full flex items-center justify-center p-4">
+            <div className="relative bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden p-6 text-slate-100">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-white text-base">
+                      Hủy đơn hàng #{cancellingOrder.code}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Khách: <strong className="text-white">{cancellingOrder.customer_name}</strong> ({cancellingOrder.phone})
+                    </p>
+                  </div>
+                </div>
+                <button
+                  disabled={isSubmittingCancel}
+                  onClick={() => setCancellingOrder(null)}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="py-4 space-y-3">
+                <p className="text-xs font-semibold text-slate-300">
+                  Chọn lý do hủy (lý do này sẽ hiển thị cho khách và gửi lên Discord):
+                </p>
+
+                <div className="space-y-2">
+                  {CANCEL_REASONS.map((reason) => (
+                    <label
+                      key={reason}
+                      className={`flex items-center gap-3 p-3 rounded-xl border text-xs font-medium cursor-pointer transition-all ${
+                        cancelReasonOption === reason
+                          ? "bg-rose-950/40 border-rose-500 text-white font-semibold"
+                          : "bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="cancelReason"
+                        value={reason}
+                        checked={cancelReasonOption === reason}
+                        onChange={(e) => setCancelReasonOption(e.target.value)}
+                        className="text-rose-600 focus:ring-0 bg-slate-900 border-slate-700"
+                      />
+                      <span>{reason}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {cancelReasonOption === "Lý do khác..." && (
+                  <div className="pt-2">
+                    <textarea
+                      rows={3}
+                      placeholder="Nhập lý do hủy chi tiết tại đây..."
+                      value={customCancelReason}
+                      onChange={(e) => setCustomCancelReason(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-medium focus:border-rose-500 focus:outline-none text-white transition-all"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-slate-800 flex gap-2.5">
+                <button
+                  type="button"
+                  disabled={isSubmittingCancel}
+                  onClick={() => setCancellingOrder(null)}
+                  className="flex-1 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-all"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmittingCancel}
+                  onClick={handleConfirmCancel}
+                  className="flex-1 py-3 px-4 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-950/40 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                >
+                  {isSubmittingCancel ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang xử lý...</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-4 h-4" />
+                      <span>Xác nhận hủy đơn</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
