@@ -457,28 +457,68 @@ export default function StoreDashboard() {
       )}
 
       {/* Top Header */}
-      <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 py-3 shadow-md">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <div className="bg-orange-600 text-white p-2 rounded-xl">
-              <ShoppingBag className="w-5 h-5" />
+      <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-3 sm:px-4 py-2.5 sm:py-3 shadow-md">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
+          {/* Top Row on Mobile: Brand + Quick Actions */}
+          <div className="flex items-center justify-between w-full sm:w-auto">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="bg-orange-600 text-white p-2 rounded-xl shrink-0">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="font-black text-sm sm:text-base leading-tight text-white tracking-tight truncate">
+                  {SHOP_CONFIG.name}
+                </h1>
+                <span className="text-[10px] sm:text-xs text-orange-500 font-semibold tracking-wider uppercase block truncate">
+                  Bảng điều khiển Bếp & Thực đơn
+                </span>
+              </div>
             </div>
-            <div>
-              <h1 className="font-black text-sm sm:text-base leading-none text-white tracking-tight">
-                {SHOP_CONFIG.name}
-              </h1>
-              <span className="text-[10px] sm:text-xs text-orange-500 font-semibold tracking-wider uppercase">
-                Bảng điều khiển Bếp & Thực đơn
-              </span>
+
+            {/* Quick Actions on Mobile (Sound, Refresh, Logout) */}
+            <div className="flex items-center gap-1.5 sm:hidden shrink-0">
+              <button
+                onClick={() => {
+                  setSoundEnabled(!soundEnabled);
+                  if (!soundEnabled) {
+                    setTimeout(() => playNewOrderSound(), 100);
+                  }
+                }}
+                className={`p-2 rounded-xl border transition-all ${
+                  soundEnabled
+                    ? "bg-orange-500/10 border-orange-500/30 text-orange-500"
+                    : "bg-slate-800 border-slate-700 text-slate-400"
+                }`}
+                title={soundEnabled ? "Tắt âm báo" : "Bật âm báo"}
+              >
+                {soundEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+              </button>
+
+              <button
+                onClick={() => setIsReloadModalOpen(true)}
+                disabled={isLoadingOrders || isLoadingMenu}
+                className="p-2 bg-slate-800 text-slate-300 border border-slate-700 rounded-xl"
+                title="Làm mới"
+              >
+                <RotateCw className={`w-4 h-4 ${isLoadingOrders || isLoadingMenu ? "animate-spin" : ""}`} />
+              </button>
+
+              <button
+                onClick={handleLogout}
+                className="text-xs bg-slate-800 text-rose-400 border border-slate-700 rounded-xl px-2.5 py-2 font-bold"
+              >
+                Thoát
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Bottom Row on Mobile / Right side on Desktop */}
+          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
             {/* Chuyển đổi View: Đơn hàng vs Thực đơn */}
-            <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center gap-1">
+            <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center gap-1 flex-1 sm:flex-initial">
               <button
                 onClick={() => setMainView("orders")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                   mainView === "orders"
                     ? "bg-orange-600 text-white shadow-sm"
                     : "text-slate-400 hover:text-white"
@@ -497,14 +537,14 @@ export default function StoreDashboard() {
                   setMainView("menu");
                   fetchMenu();
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                   mainView === "menu"
                     ? "bg-orange-600 text-white shadow-sm"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
                 <UtensilsCrossed className="w-3.5 h-3.5" />
-                <span>Quản lý Menu</span>
+                <span>Menu</span>
               </button>
             </div>
 
@@ -514,47 +554,47 @@ export default function StoreDashboard() {
                 playNewOrderSound();
                 showToast("Đã kích hoạt & thử âm thanh chuông bếp!");
               }}
-              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-700 flex items-center gap-1.5 transition-all shadow-xs"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-700 flex items-center gap-1.5 transition-all shrink-0"
               title="Nhấp để thử âm thanh loa bếp & mở quyền phát âm thanh"
             >
               <span>🔊 Thử chuông</span>
             </button>
 
-            {/* Nút kiểm soát chuông */}
-            <button
-              onClick={() => {
-                setSoundEnabled(!soundEnabled);
-                if (!soundEnabled) {
-                  setTimeout(() => playNewOrderSound(), 100);
-                }
-              }}
-              className={`p-2.5 rounded-xl border transition-all ${
-                soundEnabled
-                  ? "bg-orange-500/10 border-orange-500/30 text-orange-500 hover:bg-orange-500/20"
-                  : "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700"
-              }`}
-              title={soundEnabled ? "Tắt âm báo đơn mới" : "Bật âm báo đơn mới"}
-            >
-              {soundEnabled ? <Bell className="w-4 h-4 animate-swing" /> : <BellOff className="w-4 h-4" />}
-            </button>
+            {/* Desktop-only buttons */}
+            <div className="hidden sm:flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setSoundEnabled(!soundEnabled);
+                  if (!soundEnabled) {
+                    setTimeout(() => playNewOrderSound(), 100);
+                  }
+                }}
+                className={`p-2.5 rounded-xl border transition-all ${
+                  soundEnabled
+                    ? "bg-orange-500/10 border-orange-500/30 text-orange-500 hover:bg-orange-500/20"
+                    : "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700"
+                }`}
+                title={soundEnabled ? "Tắt âm báo đơn mới" : "Bật âm báo đơn mới"}
+              >
+                {soundEnabled ? <Bell className="w-4 h-4 animate-swing" /> : <BellOff className="w-4 h-4" />}
+              </button>
 
-            {/* Nút Refresh (Cần xác nhận) */}
-            <button
-              onClick={() => setIsReloadModalOpen(true)}
-              disabled={isLoadingOrders || isLoadingMenu}
-              className="p-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 border border-slate-700 rounded-xl transition-all"
-              title="Làm mới dữ liệu (Cần xác nhận)"
-            >
-              <RotateCw className={`w-4 h-4 ${isLoadingOrders || isLoadingMenu ? "animate-spin" : ""}`} />
-            </button>
+              <button
+                onClick={() => setIsReloadModalOpen(true)}
+                disabled={isLoadingOrders || isLoadingMenu}
+                className="p-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 border border-slate-700 rounded-xl transition-all"
+                title="Làm mới dữ liệu (Cần xác nhận)"
+              >
+                <RotateCw className={`w-4 h-4 ${isLoadingOrders || isLoadingMenu ? "animate-spin" : ""}`} />
+              </button>
 
-            {/* Đăng xuất */}
-            <button
-              onClick={handleLogout}
-              className="text-xs bg-slate-800 hover:bg-rose-950/80 hover:text-rose-400 border border-slate-700 rounded-xl px-3 py-2.5 font-bold transition-all"
-            >
-              Đăng xuất
-            </button>
+              <button
+                onClick={handleLogout}
+                className="text-xs bg-slate-800 hover:bg-rose-950/80 hover:text-rose-400 border border-slate-700 rounded-xl px-3 py-2.5 font-bold transition-all"
+              >
+                Đăng xuất
+              </button>
+            </div>
           </div>
         </div>
       </header>
