@@ -221,6 +221,76 @@ export async function markMomoPaymentConfirmed(code: string): Promise<boolean> {
 }
 
 /**
+ * Hàm xóa vĩnh viễn 1 đơn hàng theo mã đơn (Supabase + local backup)
+ */
+export async function deleteOrderFromDb(code: string): Promise<boolean> {
+  let success = false;
+
+  // 1. Xóa local
+  const localOrders = readLocalOrders();
+  const filtered = localOrders.filter((o) => o.code !== code);
+  if (filtered.length !== localOrders.length) {
+    writeLocalOrders(filtered);
+    success = true;
+  }
+
+  // 2. Xóa trên Supabase
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { error } = await supabaseAdmin
+        .from("orders")
+        .delete()
+        .eq("code", code);
+
+      if (error) {
+        console.error("Lỗi xóa đơn trên Supabase:", error);
+      } else {
+        success = true;
+      }
+    } catch (ex) {
+      console.error("Ngoại lệ khi xóa đơn trên Supabase:", ex);
+    }
+  }
+
+  return success;
+}
+
+/**
+ * Hàm xóa toàn bộ đơn hàng trong lịch sử (đã hoàn tất hoặc đã hủy)
+ */
+export async function clearOrderHistoryFromDb(): Promise<boolean> {
+  let success = false;
+
+  // 1. Local
+  const localOrders = readLocalOrders();
+  const remaining = localOrders.filter(
+    (o) => o.status !== "completed" && o.status !== "cancelled"
+  );
+  writeLocalOrders(remaining);
+  success = true;
+
+  // 2. Supabase
+  if (isSupabaseConfigured && supabaseAdmin) {
+    try {
+      const { error } = await supabaseAdmin
+        .from("orders")
+        .delete()
+        .in("status", ["completed", "cancelled"]);
+
+      if (error) {
+        console.error("Lỗi dọn dẹp lịch sử đơn trên Supabase:", error);
+      } else {
+        success = true;
+      }
+    } catch (ex) {
+      console.error("Ngoại lệ khi dọn lịch sử Supabase:", ex);
+    }
+  }
+
+  return success;
+}
+
+/**
  * Hàm lấy 1 đơn hàng cụ thể theo mã đơn
  */
 export async function getOrderByCode(code: string): Promise<OrderRecord | null> {

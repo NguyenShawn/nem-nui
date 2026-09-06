@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllOrders, updateOrderStatusInDb, getOrderByCode } from "@/lib/orderDb";
+import {
+  getAllOrders,
+  updateOrderStatusInDb,
+  getOrderByCode,
+  deleteOrderFromDb,
+  clearOrderHistoryFromDb,
+} from "@/lib/orderDb";
 import { SHOP_CONFIG } from "@/config/shop";
 import { OrderStatus } from "@/types/order";
 import {
@@ -155,3 +161,57 @@ export async function PATCH(req: NextRequest) {
     );
   }
 }
+
+/**
+ * DELETE /api/admin/orders
+ * Xóa vĩnh viễn 1 đơn hàng theo mã đơn hoặc dọn dẹp sạch toàn bộ lịch sử đơn
+ */
+export async function DELETE(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { code, clearAllHistory, pin } = body;
+
+    // Xác thực PIN từ body
+    if (pin !== SHOP_CONFIG.adminPin) {
+      return NextResponse.json(
+        { error: "Mã PIN quản lý không chính xác." },
+        { status: 401 }
+      );
+    }
+
+    if (clearAllHistory) {
+      await clearOrderHistoryFromDb();
+      return NextResponse.json({
+        success: true,
+        message: "Đã dọn dẹp sạch toàn bộ lịch sử đơn hàng đã giao và đã hủy.",
+      });
+    }
+
+    if (!code) {
+      return NextResponse.json(
+        { error: "Vui lòng cung cấp mã đơn hàng cần xóa." },
+        { status: 400 }
+      );
+    }
+
+    const success = await deleteOrderFromDb(code);
+    if (!success) {
+      return NextResponse.json(
+        { error: "Không tìm thấy đơn hàng cần xóa hoặc xóa thất bại." },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Đã xóa vĩnh viễn đơn hàng #${code}.`,
+    });
+  } catch (error: any) {
+    console.error("Lỗi DELETE /api/admin/orders:", error);
+    return NextResponse.json(
+      { error: "Đã xảy ra lỗi khi xóa đơn hàng." },
+      { status: 500 }
+    );
+  }
+}
+

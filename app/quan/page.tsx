@@ -81,6 +81,11 @@ export default function StoreDashboard() {
   const [customCancelReason, setCustomCancelReason] = useState<string>("");
   const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
 
+  // State Modal Xóa Đơn Hàng
+  const [deletingOrder, setDeletingOrder] = useState<OrderRecord | null>(null);
+  const [isClearHistoryModalOpen, setIsClearHistoryModalOpen] = useState(false);
+  const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
+
   const CANCEL_REASONS = [
     "Chưa nhận được tiền chuyển khoản MoMo",
     "Quán đã hết món / hết nguyên liệu",
@@ -320,6 +325,67 @@ export default function StoreDashboard() {
       setCustomCancelReason("");
     } finally {
       setIsSubmittingCancel(false);
+    }
+  };
+
+  // Xử lý Xóa 1 đơn hàng
+  const handleOpenDeleteModal = (order: OrderRecord) => {
+    setDeletingOrder(order);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingOrder) return;
+    setIsSubmittingDelete(true);
+    try {
+      const response = await fetch("/api/admin/orders", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: deletingOrder.code, pin }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setOrders((prev) => prev.filter((o) => o.code !== deletingOrder.code));
+        showToast(`Đã xóa vĩnh viễn đơn #${deletingOrder.code}`);
+        setDeletingOrder(null);
+      } else {
+        alert(data.error || "Xóa đơn hàng thất bại");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi kết nối khi xóa đơn hàng");
+    } finally {
+      setIsSubmittingDelete(false);
+    }
+  };
+
+  // Xử lý Dọn dẹp sạch toàn bộ lịch sử đơn
+  const handleOpenClearHistoryModal = () => {
+    setIsClearHistoryModalOpen(true);
+  };
+
+  const handleConfirmClearHistory = async () => {
+    setIsSubmittingDelete(true);
+    try {
+      const response = await fetch("/api/admin/orders", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clearAllHistory: true, pin }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setOrders((prev) =>
+          prev.filter((o) => o.status !== "completed" && o.status !== "cancelled")
+        );
+        showToast("Đã dọn dẹp sạch toàn bộ lịch sử đơn");
+        setIsClearHistoryModalOpen(false);
+      } else {
+        alert(data.error || "Dọn dẹp lịch sử thất bại");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi kết nối khi dọn dẹp lịch sử");
+    } finally {
+      setIsSubmittingDelete(false);
     }
   };
 
@@ -812,7 +878,22 @@ export default function StoreDashboard() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <>
+                {activeOrderTab === "history" && displayedOrders.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900 border border-slate-800 px-4 py-3 rounded-2xl mb-4">
+                    <span className="text-xs text-slate-400 font-medium">
+                      Đang có <strong className="text-white font-bold">{displayedOrders.length}</strong> đơn trong lịch sử
+                    </span>
+                    <button
+                      onClick={handleOpenClearHistoryModal}
+                      className="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 px-3.5 py-1.5 rounded-xl border border-rose-900/40 transition-all flex items-center gap-1.5 font-bold cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Xóa sạch tất cả đơn lịch sử</span>
+                    </button>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {displayedOrders.map((order) => {
                   let statusLabel = "";
                   let statusBg = "";
@@ -873,11 +954,20 @@ export default function StoreDashboard() {
                           </div>
                         </div>
 
-                        <div className="text-right">
+                        <div className="text-right flex flex-col items-end">
                           <div className="text-xs text-slate-400 font-medium">Doanh thu</div>
                           <div className="text-base font-black text-emerald-400 mt-0.5">
                             {formatCurrency(order.total)}
                           </div>
+                          <button
+                            type="button"
+                            title="Xóa vĩnh viễn đơn hàng này"
+                            onClick={() => handleOpenDeleteModal(order)}
+                            className="mt-1.5 px-2 py-1 text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg border border-transparent hover:border-rose-900/40 transition-all text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Xóa</span>
+                          </button>
                         </div>
                       </div>
 
@@ -1004,23 +1094,44 @@ export default function StoreDashboard() {
                         )}
 
                         {order.status === "completed" && (
-                          <div className="w-full text-center py-2 bg-emerald-950/30 text-emerald-400 text-xs font-bold rounded-xl border border-emerald-900/20 flex items-center justify-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Đã giao hàng thành công</span>
+                          <div className="w-full flex gap-2">
+                            <div className="flex-1 text-center py-2 bg-emerald-950/30 text-emerald-400 text-xs font-bold rounded-xl border border-emerald-900/20 flex items-center justify-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Đã giao hàng thành công</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDeleteModal(order)}
+                              className="px-3 py-2 bg-slate-800 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-900/50 text-slate-400 hover:text-rose-400 text-xs font-bold rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                              title="Xóa đơn này"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Xóa</span>
+                            </button>
                           </div>
                         )}
 
                         {order.status === "cancelled" && (
-                          <div className="w-full py-2.5 px-3 bg-rose-950/30 text-rose-400 text-xs font-medium rounded-xl border border-rose-900/30 space-y-1">
-                            <div className="flex items-center justify-center gap-1 font-bold text-rose-300">
-                              <XCircle className="w-3.5 h-3.5" />
-                              <span>Đơn đã bị hủy</span>
-                            </div>
-                            {order.cancel_reason && (
-                              <div className="text-[11px] text-center text-rose-200 bg-rose-950/60 py-1.5 px-2 rounded-lg border border-rose-900/40">
-                                Lý do: <span className="font-bold text-white">{order.cancel_reason}</span>
+                          <div className="w-full space-y-2">
+                            <div className="w-full py-2.5 px-3 bg-rose-950/30 text-rose-400 text-xs font-medium rounded-xl border border-rose-900/30 space-y-1">
+                              <div className="flex items-center justify-center gap-1 font-bold text-rose-300">
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span>Đơn đã bị hủy</span>
                               </div>
-                            )}
+                              {order.cancel_reason && (
+                                <div className="text-[11px] text-center text-rose-200 bg-rose-950/60 py-1.5 px-2 rounded-lg border border-rose-900/40">
+                                  Lý do: <span className="font-bold text-white">{order.cancel_reason}</span>
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDeleteModal(order)}
+                              className="w-full py-2 bg-slate-800/80 hover:bg-rose-950/60 border border-slate-700/80 hover:border-rose-900/50 text-slate-400 hover:text-rose-400 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Xóa đơn này khỏi hệ thống</span>
+                            </button>
                           </div>
                         )}
                       </div>
@@ -1028,6 +1139,7 @@ export default function StoreDashboard() {
                   );
                 })}
               </div>
+              </>
             )}
           </>
         )}
@@ -1526,6 +1638,118 @@ export default function StoreDashboard() {
                     <>
                       <XCircle className="w-4 h-4" />
                       <span>Xác nhận hủy đơn</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL XÁC NHẬN XÓA 1 ĐƠN HÀNG */}
+      {/* ========================================================================= */}
+      {deletingOrder && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div
+            onClick={() => !isSubmittingDelete && setDeletingOrder(null)}
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="min-h-full flex items-center justify-center p-4">
+            <div className="relative bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden p-6 text-slate-100 text-center">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mb-4">
+                <Trash2 className="w-7 h-7" />
+              </div>
+
+              <h3 className="font-black text-white text-lg mb-2">
+                Xóa đơn hàng #{deletingOrder.code}?
+              </h3>
+              <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+                Hành động này sẽ xóa vĩnh viễn đơn hàng của khách <strong className="text-white">{deletingOrder.customer_name}</strong> ({deletingOrder.phone}) khỏi hệ thống.
+              </p>
+
+              <div className="flex gap-2.5">
+                <button
+                  type="button"
+                  disabled={isSubmittingDelete}
+                  onClick={() => setDeletingOrder(null)}
+                  className="flex-1 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmittingDelete}
+                  onClick={handleConfirmDelete}
+                  className="flex-1 py-3 px-4 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-950/40 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmittingDelete ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang xóa...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Xác nhận xóa</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL XÁC NHẬN XÓA SẠCH LỊCH SỬ ĐƠN */}
+      {/* ========================================================================= */}
+      {isClearHistoryModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div
+            onClick={() => !isSubmittingDelete && setIsClearHistoryModalOpen(false)}
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs transition-opacity"
+          />
+
+          <div className="min-h-full flex items-center justify-center p-4">
+            <div className="relative bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden p-6 text-slate-100 text-center">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mb-4">
+                <Trash2 className="w-7 h-7" />
+              </div>
+
+              <h3 className="font-black text-white text-lg mb-2">
+                Xóa sạch đơn trong lịch sử?
+              </h3>
+              <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+                Tất cả các đơn hàng đã giao thành công và đã hủy sẽ bị xóa vĩnh viễn khỏi danh sách. Các đơn hàng mới hoặc đang chế biến vẫn được giữ nguyên.
+              </p>
+
+              <div className="flex gap-2.5">
+                <button
+                  type="button"
+                  disabled={isSubmittingDelete}
+                  onClick={() => setIsClearHistoryModalOpen(false)}
+                  className="flex-1 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmittingDelete}
+                  onClick={handleConfirmClearHistory}
+                  className="flex-1 py-3 px-4 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-950/40 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmittingDelete ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang xóa...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Xóa toàn bộ</span>
                     </>
                   )}
                 </button>
