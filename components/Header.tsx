@@ -47,7 +47,7 @@ export function Header({ isOpen, statusMessage }: HeaderProps) {
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-brand">
               {SHOP_CONFIG.name}
             </h1>
 

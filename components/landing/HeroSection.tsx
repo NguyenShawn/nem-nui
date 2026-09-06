@@ -40,7 +40,7 @@ export function HeroSection({ onScrollToForm, onScrollToDeal }: HeroSectionProps
             </button>
 
             {/* 2. Headline (Balanced 2-Line Flow, No Orphan Words) */}
-            <h1 className="text-3xl sm:text-4xl lg:text-[2.5rem] xl:text-[2.7rem] font-bold text-stone-900 tracking-tight leading-[1.22] mb-5 [text-wrap:balance]">
+            <h1 className="text-3xl sm:text-4xl lg:text-[2.5rem] xl:text-[2.7rem] font-bold text-stone-900 tracking-tight leading-[1.22] mb-5 [text-wrap:balance] font-muli uppercase">
               Nem nướng mật nóng hổi,
               <span className="block text-orange-700 mt-1">nguồn sỉ tận gốc chỉ từ 100 cây.</span>
             </h1>

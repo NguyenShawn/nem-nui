@@ -68,7 +68,7 @@ export function UspGrid() {
           <span className="text-xs font-bold uppercase tracking-wider text-orange-700 bg-orange-100/80 px-3 py-1 rounded-md mb-3 inline-block border border-orange-200/60">
             Lợi thế cạnh tranh
           </span>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-stone-900 tracking-normal leading-snug">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-muli uppercase text-stone-900 tracking-normal leading-snug">
             Bốn lợi thế giúp quán của bạn giữ khách và tăng lợi nhuận
           </h2>
           <p className="mt-2.5 text-sm sm:text-base text-stone-600 leading-relaxed font-normal">

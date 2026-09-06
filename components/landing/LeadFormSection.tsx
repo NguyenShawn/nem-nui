@@ -135,7 +135,7 @@ export function LeadFormSection() {
                 </div>
 
                 {/* Headline */}
-                <h2 className="text-2xl sm:text-3xl font-bold text-stone-900 tracking-normal leading-tight mb-3">
+                <h2 className="text-2xl sm:text-3xl font-bold font-muli uppercase text-stone-900 tracking-normal leading-tight mb-3">
                   Đặt Kit Mẫu Thử giao nóng tận quán để thẩm định vị.
                 </h2>
 

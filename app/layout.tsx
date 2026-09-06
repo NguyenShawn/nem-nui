@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
+import { Fraunces, Plus_Jakarta_Sans, Mulish } from "next/font/google";
 import "./globals.css";
 
 const fontDisplay = Fraunces({
@@ -7,6 +7,13 @@ const fontDisplay = Fraunces({
   variable: "--font-display",
   display: "swap",
   weight: ["600", "700", "800", "900"],
+});
+
+const fontMuli = Mulish({
+  subsets: ["vietnamese", "latin"],
+  variable: "--font-muli",
+  display: "swap",
+  weight: ["400", "600", "700", "800", "900"],
 });
 
 const fontSans = Plus_Jakarta_Sans({
@@ -66,7 +73,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={`scroll-smooth ${fontDisplay.variable} ${fontSans.variable}`}>
+    <html
+      lang="vi"
+      className={`scroll-smooth ${fontDisplay.variable} ${fontSans.variable} ${fontMuli.variable}`}
+    >
       <body className="font-sans antialiased min-h-screen text-stone-800 bg-[#FFFBEB] selection:bg-orange-200 selection:text-orange-900">
         {children}
       </body>

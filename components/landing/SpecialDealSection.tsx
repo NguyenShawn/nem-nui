@@ -44,7 +44,7 @@ export function SpecialDealSection({ onClaimDeal }: SpecialDealSectionProps) {
                 Chính sách đối tác sỉ
               </span>
 
-              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-normal mb-3">
+              <h2 className="text-2xl sm:text-3xl font-bold font-muli uppercase text-white tracking-normal mb-3">
                 Đăng ký nhận Kit Mẫu Thử & Báo giá sỉ tận gốc.
               </h2>
 

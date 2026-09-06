@@ -15,7 +15,7 @@ export function RetailBanner() {
             <span className="text-xs font-bold uppercase tracking-wider text-amber-300 block mb-1">
               Dành cho khách ăn liền & gia đình
             </span>
-            <h3 className="text-xl sm:text-2xl font-black text-white leading-snug mb-2">
+            <h3 className="text-xl sm:text-2xl font-bold font-muli uppercase text-white leading-snug mb-2 tracking-wide">
               Bạn muốn ăn liền hôm nay? Không cần đợi sỉ!
             </h3>
             <p className="text-xs sm:text-sm text-emerald-200 font-normal leading-relaxed mb-4">

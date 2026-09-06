@@ -15,7 +15,7 @@ export function FaqAccordion() {
     <section id="faq" className="py-16 sm:py-20 bg-stone-50/70 border-b border-stone-200/60 scroll-mt-16">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-bold font-muli uppercase text-stone-900 tracking-tight">
             Giải đáp thắc mắc của chủ quán & khách sỉ
           </h2>
           <p className="mt-2.5 text-base text-stone-600 leading-relaxed font-normal">

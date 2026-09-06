@@ -16,8 +16,17 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 20px);
 }
 
-h1, h2, h3, .font-display {
-  font-family: var(--font-display), Georgia, serif;
+h1, h2, h3, .font-heading, .font-muli {
+  font-family: var(--font-muli), "Mulish", "Muli", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* Giữ nguyên font Fraunces gốc cho thương hiệu "Nem Núi - Đặc Sản Nem Nướng" */
+.font-brand, .brand-title {
+  font-family: var(--font-display), Georgia, serif !important;
+  text-transform: none !important;
   letter-spacing: 0.015em;
 }
 

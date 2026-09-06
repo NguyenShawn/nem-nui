@@ -70,10 +70,10 @@ export function LandingHeader({ onScrollToForm }: LandingHeaderProps) {
             </div>
 
             <div className="flex flex-col">
-              <span className="text-xl sm:text-2xl font-black tracking-tight text-stone-900 leading-none">
+              <span className="text-xl sm:text-2xl font-black tracking-tight text-stone-900 leading-none font-brand">
                 Nem Núi
               </span>
-              <span className="text-[11px] text-stone-500 font-medium hidden sm:inline mt-1 leading-none">
+              <span className="text-[11px] text-stone-500 font-medium hidden sm:inline mt-1 leading-none font-brand">
                 Chuyên bán Nem Nướng uy tín sỉ / lẻ
               </span>
             </div>
