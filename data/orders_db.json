@@ -1,0 +1,26 @@
+[
+  {
+    "code": "7AX8ZP",
+    "customer_name": "Chị Thảo (Test Hệ Thống Nem Núi)",
+    "phone": "0912345678",
+    "address": "Số 88 Đường Lê Văn Việt, Phường Hiệp Phú, TP. Thủ Đức",
+    "note": "Giao nóng ăn liền trong 2h, cho thêm 1 chén tương đậu phộng",
+    "items": [
+      {
+        "id": "nem-nuong-dac-biet",
+        "name": "Mẹt Nem Nướng Đặc Biệt",
+        "price": 55000,
+        "qty": 1
+      },
+      {
+        "id": "tra-tac-hat-chia",
+        "name": "Trà Tắc Mật Ong Hạt Chia (Khổng lồ)",
+        "price": 15000,
+        "qty": 1
+      }
+    ],
+    "total": 85000,
+    "payment_method": "cod",
+    "status": "completed"
+  }
+]
