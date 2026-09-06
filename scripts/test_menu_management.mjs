@@ -14,7 +14,8 @@ import {
 } from "../app/api/admin/menu/route.ts";
 import { POST as createOrder } from "../app/api/order/route.ts";
 import { NextRequest } from "next/server";
-import { SHOP_CONFIG } from "../config/shop.ts";
+
+const ADMIN_PIN = process.env.ADMIN_PIN || "99887766";
 
 console.log("==================================================");
 console.log("🧪 BẮT ĐẦU KIỂM THỬ TÍNH NĂNG CHỈNH SỬA THỰC ĐƠN");
@@ -63,7 +64,7 @@ async function runMenuTests() {
     const req = new NextRequest("http://localhost:3000/api/admin/menu", {
       method: "POST",
       body: JSON.stringify({
-        pin: SHOP_CONFIG.adminPin,
+        pin: ADMIN_PIN,
         item: {
           id: customItemId,
           name: customItemName,
@@ -106,7 +107,7 @@ async function runMenuTests() {
       body: JSON.stringify({
         id: customItemId,
         available: false,
-        pin: SHOP_CONFIG.adminPin,
+        pin: ADMIN_PIN,
       }),
     });
     const res = await patchAdminMenu(req);
@@ -136,7 +137,7 @@ async function runMenuTests() {
     const req = new NextRequest("http://localhost:3000/api/admin/menu", {
       method: "PUT",
       body: JSON.stringify({
-        pin: SHOP_CONFIG.adminPin,
+        pin: ADMIN_PIN,
         item: {
           id: customItemId,
           name: customItemName,
@@ -172,8 +173,9 @@ async function runMenuTests() {
 
   // 8. Xóa món ăn khỏi thực đơn (DELETE /api/admin/menu)
   {
-    const req = new NextRequest(`http://localhost:3000/api/admin/menu?id=${customItemId}&pin=${SHOP_CONFIG.adminPin}`, {
+    const req = new NextRequest(`http://localhost:3000/api/admin/menu?id=${customItemId}`, {
       method: "DELETE",
+      headers: { "x-admin-key": ADMIN_PIN },
     });
     const res = await deleteAdminMenu(req);
     assert(res.status === 200, "Xóa món khỏi thực đơn thành công");
@@ -188,6 +190,7 @@ async function runMenuTests() {
   console.log("==================================================");
   console.log(`🎉 KẾT QUẢ KIỂM THỬ MENU: ${passedTests}/${totalTests} TESTS ĐẠT 100%`);
   console.log("==================================================");
+  process.exit(passedTests === totalTests ? 0 : 1);
 }
 
 runMenuTests();

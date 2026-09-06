@@ -27,12 +27,33 @@ export interface Category {
 
 export const CATEGORIES: Category[] = [
   { id: "all", name: "Tất cả món" },
+  { id: "set", name: "Set & Combo" },
   { id: "nem-chinh", name: "Món Nem & Bún" },
   { id: "an-vat", name: "Ăn vặt & Cuốn" },
   { id: "do-uong", name: "Trà & Giải khát" },
 ];
 
 export const MENU_ITEMS: MenuItem[] = [
+  {
+    id: "set-an-vat-28k",
+    name: "Set Ăn Vặt 28k",
+    price: 28000,
+    category: "set",
+    description: "Set ăn vặt nem nướng kèm đồ chua và nước chấm",
+    image: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=600&auto=format&fit=crop&q=80",
+    available: true,
+    isBestSeller: true,
+  },
+  {
+    id: "kit-mau-thu-25k",
+    name: "Kit mẫu thử 25k",
+    price: 25000,
+    category: "set",
+    description: "Kit mẫu thử nem nướng trải nghiệm",
+    image: "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=600&auto=format&fit=crop&q=80",
+    available: true,
+    isBestSeller: false,
+  },
   {
     id: "kit-nem-mau-thu",
     name: "Kit Nem Nướng Mẫu Thử (3 cây + Hũ Sốt) - Trợ Giá",
@@ -58,7 +79,7 @@ export const MENU_ITEMS: MenuItem[] = [
   {
     id: "bun-nem-nuong",
     name: "Bún Nem Nướng Chả Giò",
-    price: 45000,
+    price: 35000,
     description: "Bún tươi sợi nhỏ, nem nướng xắt lát, 2 cuốn chả giò giòn rụm, mỡ hành đậu phộng thơm phức chan nước mắm chua ngọt.",
     image: "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=600&auto=format&fit=crop&q=80",
     category: "nem-chinh",

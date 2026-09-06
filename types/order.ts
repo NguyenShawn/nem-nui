@@ -36,7 +36,7 @@ export interface OrderApiResponse {
   error?: string;
 }
 
-export type OrderStatus = "new" | "preparing" | "delivering" | "completed" | "cancelled";
+export type OrderStatus = "new" | "preparing" | "delivering" | "completed" | "cancelled" | "paid";
 
 export interface OrderRecord {
   id?: string;
@@ -51,6 +51,9 @@ export interface OrderRecord {
   status: OrderStatus;
   cancel_reason?: string | null;
   momo_confirmed?: boolean;
+  transaction_id?: string | null;
+  paid_at?: string | null;
+  branch_id?: string | null;
   created_at?: string;
 }
 

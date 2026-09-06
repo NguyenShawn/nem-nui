@@ -29,10 +29,12 @@ import {
   Tag,
   AlertTriangle,
 } from "lucide-react";
-import { OrderRecord, OrderStatus } from "@/types/order";
+import { OrderRecord, OrderStatus, OrderItemPayload } from "@/types/order";
 import { MenuItem, Category, CATEGORIES, MENU_ITEMS } from "@/data/menu";
 import { formatCurrency } from "@/lib/utils";
 import { SHOP_CONFIG } from "@/config/shop";
+import { getSupabaseBrowserClient, supabaseClient } from "@/lib/supabase";
+import { RealtimeStatusBadge, RealtimeConnectionStatus } from "@/components/RealtimeStatusBadge";
 
 export default function StoreDashboard() {
   const [pin, setPin] = useState("");
@@ -49,6 +51,13 @@ export default function StoreDashboard() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [soundMutedTemporarily, setSoundMutedTemporarily] = useState(false);
   const prevOrderCodesRef = useRef<Set<string>>(new Set());
+
+  // State Realtime & Chi nhánh
+  const [connectionStatus, setConnectionStatus] = useState<RealtimeConnectionStatus>("DISCONNECTED");
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("all");
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const channelRef = useRef<any>(null);
 
   // State Menu (Khởi tạo sẵn danh sách món mặc định)
   const [menuItems, setMenuItems] = useState<MenuItem[]>(MENU_ITEMS);
@@ -145,29 +154,41 @@ export default function StoreDashboard() {
     }
   };
 
-  // Chuông báo động lặp lại liên tục mỗi 4 giây cho đến khi bếp bấm nhận đơn
+  // Đặt lại cờ tắt chuông tạm thời khi không còn đơn mới
   useEffect(() => {
-    if (!isAuthenticated || !soundEnabled || soundMutedTemporarily) return;
-
     const hasNew = orders.some((o) => o.status === "new");
     if (!hasNew) {
       setSoundMutedTemporarily(false);
-      return;
     }
+  }, [orders]);
 
-    const alarmInterval = setInterval(() => {
-      playNewOrderSound();
-    }, 4000);
-
-    return () => clearInterval(alarmInterval);
-  }, [isAuthenticated, soundEnabled, soundMutedTemporarily, orders]);
-
-  // Khôi phục PIN từ sessionStorage
+  // Khôi phục PIN từ sessionStorage và thẩm định trực tiếp với máy chủ
   useEffect(() => {
     const savedPin = sessionStorage.getItem("store_admin_pin");
-    if (savedPin === SHOP_CONFIG.adminPin) {
+    if (savedPin) {
       setPin(savedPin);
-      setIsAuthenticated(true);
+      setIsLoadingOrders(true);
+      fetch("/api/admin/orders", {
+        headers: { "x-admin-pin": savedPin },
+      })
+        .then((res) => {
+          if (res.ok) return res.json();
+          throw new Error("Phiên làm việc hết hạn");
+        })
+        .then((data) => {
+          if (data.success && Array.isArray(data.orders)) {
+            setOrders(data.orders);
+            setIsAuthenticated(true);
+          }
+        })
+        .catch(() => {
+          sessionStorage.removeItem("store_admin_pin");
+          setIsAuthenticated(false);
+          setPin("");
+        })
+        .finally(() => {
+          setIsLoadingOrders(false);
+        });
     }
   }, []);
 
@@ -175,9 +196,17 @@ export default function StoreDashboard() {
   const fetchOrders = async (silent = false) => {
     if (!silent) setIsLoadingOrders(true);
     try {
-      const response = await fetch(`/api/admin/orders?pin=${pin}`);
+      const activePin = pin.trim() || sessionStorage.getItem("store_admin_pin") || "";
+      const response = await fetch("/api/admin/orders", {
+        headers: { "x-admin-pin": activePin },
+      });
+      if (response.status === 401) {
+        sessionStorage.removeItem("store_admin_pin");
+        if (!silent) setIsAuthenticated(false);
+        throw new Error("Phiên làm việc đã hết hạn hoặc mã PIN sai.");
+      }
       if (!response.ok) {
-        throw new Error("Không thể tải đơn hàng. Mã PIN không đúng.");
+        throw new Error("Không thể tải đơn hàng.");
       }
       const data = await response.json();
       if (data.success && Array.isArray(data.orders)) {
@@ -211,8 +240,10 @@ export default function StoreDashboard() {
   const fetchMenu = async () => {
     setIsLoadingMenu(true);
     try {
-      const activePin = pin || sessionStorage.getItem("store_admin_pin") || SHOP_CONFIG.adminPin;
-      const response = await fetch(`/api/admin/menu?pin=${encodeURIComponent(activePin)}`);
+      const activePin = pin.trim() || sessionStorage.getItem("store_admin_pin") || "";
+      const response = await fetch("/api/admin/menu", {
+        headers: { "x-admin-pin": activePin },
+      });
       if (response.ok) {
         const data = await response.json();
         if (data.success && Array.isArray(data.items)) {
@@ -227,30 +258,249 @@ export default function StoreDashboard() {
     }
   };
 
-  // Tự động tải đơn hàng mỗi 5 giây sau khi đăng nhập
+  // Chuyển đổi dữ liệu thô từ Supabase Realtime thành OrderRecord chuẩn
+  const formatOrderRecord = (raw: any): OrderRecord => {
+    let parsedItems: OrderItemPayload[] = [];
+    if (Array.isArray(raw.items)) {
+      parsedItems = raw.items;
+    } else if (typeof raw.items === "string") {
+      try {
+        parsedItems = JSON.parse(raw.items);
+      } catch {
+        parsedItems = [];
+      }
+    }
+
+    return {
+      id: raw.id,
+      code: raw.code,
+      customer_name: raw.customer_name || "",
+      phone: raw.phone || "",
+      address: raw.address || "",
+      note: raw.note || null,
+      items: parsedItems.map((it: any) => ({
+        id: String(it.id || it.menu_item_id || ""),
+        name: String(it.name || it.item_name || ""),
+        price: Number(it.price || 0),
+        qty: Number(it.qty || it.quantity || 1),
+      })),
+      total: Number(raw.total || 0),
+      payment_method: raw.payment_method || "cod",
+      status: raw.status || "new",
+      cancel_reason: raw.cancel_reason || null,
+      momo_confirmed: Boolean(raw.momo_confirmed),
+      branch_id: raw.branch_id || null,
+      created_at: raw.created_at || new Date().toISOString(),
+    };
+  };
+
+  // Xử lý khi có đơn hàng MỚI (INSERT) qua Supabase Realtime CDC
+  const handleNewIncomingOrder = (newOrderRow: any) => {
+    if (!newOrderRow || !newOrderRow.code) return;
+    const formatted = formatOrderRecord(newOrderRow);
+
+    setOrders((prev) => {
+      // Khử trùng lặp (Deduplication) theo mã đơn hoặc ID
+      if (prev.some((o) => o.code === formatted.code || (o.id && formatted.id && o.id === formatted.id))) {
+        return prev;
+      }
+      return [formatted, ...prev];
+    });
+
+    setSoundMutedTemporarily(false);
+    playNewOrderSound(); // Phát chuông 3 nốt Đô-Mi-Sol lập tức khi có đơn mới
+    showToast(`Có đơn hàng mới: #${formatted.code}!`);
+  };
+
+  // Xử lý khi có cập nhật đơn hàng (UPDATE) qua Supabase Realtime CDC
+  const handleOrderUpdated = (updatedOrderRow: any) => {
+    if (!updatedOrderRow || !updatedOrderRow.code) return;
+    const formatted = formatOrderRecord(updatedOrderRow);
+
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.code === formatted.code || (o.id && formatted.id && o.id === formatted.id)
+          ? { ...o, ...formatted }
+          : o
+      )
+    );
+    // Lưu ý quan trọng (PAIR-09): Tuyệt đối KHÔNG phát âm thanh chuông khi UPDATE để tránh mỏi tai cho bếp
+  };
+
+  // Xử lý khi xóa đơn hàng (DELETE) qua Supabase Realtime CDC
+  const handleOrderDeleted = (deletedOrderRow: any) => {
+    if (!deletedOrderRow) return;
+    const targetCode = deletedOrderRow.code;
+    const targetId = deletedOrderRow.id;
+    setOrders((prev) =>
+      prev.filter((o) => (targetCode ? o.code !== targetCode : true) && (targetId ? o.id !== targetId : true))
+    );
+  };
+
+  // Thử kết nối lại thủ công
+  const handleReconnect = () => {
+    reconnectAttemptsRef.current = 0;
+    setConnectionStatus("CONNECTING");
+    const client = getSupabaseBrowserClient() || supabaseClient;
+    if (channelRef.current && client) {
+      client.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+    fetchOrders(false);
+  };
+
+  // Khởi tạo dữ liệu ban đầu + Đăng ký kênh Supabase Realtime WebSocket (Zero-Polling)
   useEffect(() => {
     if (!isAuthenticated) return;
-    
+
+    // 1. Tải dữ liệu ban đầu khi đăng nhập
     fetchOrders(false);
     fetchMenu();
 
-    const interval = setInterval(() => {
-      fetchOrders(true);
-    }, 5000);
+    const client = getSupabaseBrowserClient() || supabaseClient;
+    if (!client) {
+      setConnectionStatus("DISCONNECTED");
+      return;
+    }
 
-    return () => clearInterval(interval);
-  }, [isAuthenticated, pin]);
+    setConnectionStatus("CONNECTING");
 
-  // Đăng nhập
-  const handleLogin = (e: React.FormEvent) => {
+    const setupChannel = () => {
+      if (channelRef.current && client) {
+        client.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+
+      const channel = client
+        .channel("orders-realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "orders",
+          },
+          (payload: any) => {
+            handleNewIncomingOrder(payload.new);
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "orders",
+          },
+          (payload: any) => {
+            handleOrderUpdated(payload.new);
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "DELETE",
+            schema: "public",
+            table: "orders",
+          },
+          (payload: any) => {
+            handleOrderDeleted(payload.old);
+          }
+        )
+        .subscribe((status: string) => {
+          if (status === "SUBSCRIBED") {
+            setConnectionStatus("CONNECTED");
+            const wasReconnecting = reconnectAttemptsRef.current > 0;
+            reconnectAttemptsRef.current = 0;
+            if (wasReconnecting) {
+              fetchOrders(true); // Đồng bộ lại dữ liệu sau khi kết nối lại
+            }
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            setConnectionStatus("RECONNECTING");
+            if (reconnectAttemptsRef.current < 5) {
+              const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 10000);
+              reconnectAttemptsRef.current += 1;
+              if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+              reconnectTimeoutRef.current = setTimeout(() => {
+                if (isAuthenticated) {
+                  setupChannel();
+                }
+              }, delay);
+            } else {
+              setConnectionStatus("DISCONNECTED");
+            }
+          } else if (status === "CLOSED") {
+            setConnectionStatus("DISCONNECTED");
+          }
+        });
+
+      channelRef.current = channel;
+      return channel;
+    };
+
+    const channel = setupChannel();
+
+    const handleOnline = () => {
+      reconnectAttemptsRef.current = 0;
+      setupChannel();
+    };
+    const handleOffline = () => {
+      setConnectionStatus("DISCONNECTED");
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      if (channel && client) {
+        client.removeChannel(channel);
+        channelRef.current = null;
+      }
+    };
+  }, [isAuthenticated]);
+
+  // Đăng nhập bảo mật qua API Header
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin === SHOP_CONFIG.adminPin) {
-      setIsAuthenticated(true);
-      setPinError("");
-      sessionStorage.setItem("store_admin_pin", pin);
-      playNewOrderSound();
-    } else {
-      setPinError("Mã PIN đăng nhập không chính xác!");
+    const cleanPin = pin.trim();
+    if (!cleanPin) {
+      setPinError("Vui lòng nhập mã PIN quản lý!");
+      return;
+    }
+
+    setIsLoadingOrders(true);
+    setPinError("");
+
+    try {
+      const response = await fetch("/api/admin/orders", {
+        headers: { "x-admin-pin": cleanPin },
+      });
+
+      if (response.status === 401) {
+        setPinError("Mã PIN đăng nhập không chính xác!");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("Không thể kết nối đến máy chủ.");
+      }
+
+      const data = await response.json();
+      if (data.success && Array.isArray(data.orders)) {
+        setOrders(data.orders);
+        setIsAuthenticated(true);
+        sessionStorage.setItem("store_admin_pin", cleanPin);
+        playNewOrderSound();
+      }
+    } catch (err: any) {
+      setPinError(err.message || "Đã xảy ra lỗi khi kiểm tra mã PIN.");
+    } finally {
+      setIsLoadingOrders(false);
     }
   };
 
@@ -261,38 +511,56 @@ export default function StoreDashboard() {
     setPin("");
   };
 
-  // Cập nhật trạng thái đơn hàng
+  // Cập nhật trạng thái đơn hàng (Optimistic UI Update với Rollback)
   const handleUpdateOrderStatus = async (
     code: string,
     nextStatus: OrderStatus,
     reason?: string
   ) => {
+    const previousOrders = [...orders];
+    const targetOrder = orders.find((o) => o.code === code);
+    if (!targetOrder) return;
+
+    // 1. Cập nhật giao diện tức thì (Optimistic UI)
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.code === code
+          ? {
+              ...o,
+              status: nextStatus,
+              cancel_reason: reason !== undefined ? reason : o.cancel_reason,
+            }
+          : o
+      )
+    );
+    showToast(`Đang cập nhật đơn #${code}...`);
+
+    // 2. Gửi request lên máy chủ
     try {
+      const activePin = pin.trim() || sessionStorage.getItem("store_admin_pin") || "";
       const response = await fetch("/api/admin/orders", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, status: nextStatus, pin, reason }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-pin": activePin,
+        },
+        body: JSON.stringify({ code, status: nextStatus, pin: activePin, reason }),
       });
       const data = await response.json();
-      if (data.success) {
-        setOrders((prev) =>
-          prev.map((o) =>
-            o.code === code
-              ? {
-                  ...o,
-                  status: nextStatus,
-                  cancel_reason: reason || o.cancel_reason,
-                }
-              : o
-          )
-        );
-        showToast(`Đã cập nhật đơn #${code}`);
+      if (!response.ok || !data.success) {
+        // 3. Rollback nếu server từ chối
+        setOrders(previousOrders);
+        alert(data?.error || "Cập nhật trạng thái thất bại. Hệ thống đã khôi phục trạng thái ban đầu.");
+        showToast(`Lỗi: ${data?.error || "Cập nhật thất bại"}`);
       } else {
-        alert(data.error || "Cập nhật thất bại");
+        showToast(`Đã cập nhật đơn #${code}`);
       }
     } catch (err) {
-      console.error(err);
-      alert("Lỗi kết nối khi cập nhật đơn");
+      console.error("Lỗi kết nối khi cập nhật đơn:", err);
+      // 4. Rollback nếu có lỗi mạng
+      setOrders(previousOrders);
+      alert("Lỗi kết nối khi cập nhật đơn. Hệ thống đã khôi phục trạng thái ban đầu.");
+      showToast("Mất kết nối mạng! Đã khôi phục trạng thái.");
     }
   };
 
@@ -335,24 +603,36 @@ export default function StoreDashboard() {
 
   const handleConfirmDelete = async () => {
     if (!deletingOrder) return;
+    const targetCode = deletingOrder.code;
+    const previousOrders = [...orders];
+
+    // Optimistic delete
+    setOrders((prev) => prev.filter((o) => o.code !== targetCode));
+    showToast(`Đang xóa đơn #${targetCode}...`);
+
     setIsSubmittingDelete(true);
     try {
+      const activePin = pin.trim() || sessionStorage.getItem("store_admin_pin") || "";
       const response = await fetch("/api/admin/orders", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: deletingOrder.code, pin }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-pin": activePin,
+        },
+        body: JSON.stringify({ code: targetCode, pin: activePin }),
       });
       const data = await response.json();
       if (data.success) {
-        setOrders((prev) => prev.filter((o) => o.code !== deletingOrder.code));
-        showToast(`Đã xóa vĩnh viễn đơn #${deletingOrder.code}`);
+        showToast(`Đã xóa vĩnh viễn đơn #${targetCode}`);
         setDeletingOrder(null);
       } else {
-        alert(data.error || "Xóa đơn hàng thất bại");
+        setOrders(previousOrders);
+        alert(data.error || "Xóa đơn hàng thất bại. Đã khôi phục.");
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối khi xóa đơn hàng");
+      setOrders(previousOrders);
+      alert("Lỗi kết nối khi xóa đơn hàng. Đã khôi phục.");
     } finally {
       setIsSubmittingDelete(false);
     }
@@ -366,10 +646,14 @@ export default function StoreDashboard() {
   const handleConfirmClearHistory = async () => {
     setIsSubmittingDelete(true);
     try {
+      const activePin = pin.trim() || sessionStorage.getItem("store_admin_pin") || "";
       const response = await fetch("/api/admin/orders", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clearAllHistory: true, pin }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-pin": activePin,
+        },
+        body: JSON.stringify({ clearAllHistory: true, pin: activePin }),
       });
       const data = await response.json();
       if (data.success) {
@@ -398,10 +682,14 @@ export default function StoreDashboard() {
     );
 
     try {
+      const activePin = pin.trim() || sessionStorage.getItem("store_admin_pin") || "";
       const response = await fetch("/api/admin/menu", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, available: newStatus, pin }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-pin": activePin,
+        },
+        body: JSON.stringify({ id, available: newStatus, pin: activePin }),
       });
       const data = await response.json();
       if (data.success) {
@@ -472,10 +760,14 @@ export default function StoreDashboard() {
     const method = editingItem ? "PUT" : "POST";
 
     try {
+      const activePin = pin.trim() || sessionStorage.getItem("store_admin_pin") || "";
       const response = await fetch("/api/admin/menu", {
         method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ item: payloadItem, pin }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-pin": activePin,
+        },
+        body: JSON.stringify({ item: payloadItem, pin: activePin }),
       });
       const data = await response.json();
       if (data.success) {
@@ -497,8 +789,10 @@ export default function StoreDashboard() {
     if (!confirm(`Bạn có chắc chắn muốn xóa món "${name}" khỏi thực đơn?`)) return;
 
     try {
-      const response = await fetch(`/api/admin/menu?id=${id}&pin=${pin}`, {
+      const activePin = pin.trim() || sessionStorage.getItem("store_admin_pin") || "";
+      const response = await fetch(`/api/admin/menu?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
+        headers: { "x-admin-pin": activePin },
       });
       const data = await response.json();
       if (data.success) {
@@ -513,18 +807,31 @@ export default function StoreDashboard() {
     }
   };
 
-  // Phân loại đơn hàng
-  const pendingOrders = orders.filter((o) => o.status === "new");
-  const processingOrders = orders.filter((o) => o.status === "preparing" || o.status === "delivering");
-  const historyOrders = orders.filter((o) => o.status === "completed" || o.status === "cancelled");
+  // Lọc đơn theo chi nhánh được chọn
+  const branchFilteredOrders =
+    selectedBranchId === "all"
+      ? orders
+      : orders.filter((o) => o.branch_id === selectedBranchId || !o.branch_id);
 
-  const todayRevenue = orders
+  // Phân loại đơn hàng
+  const pendingOrders = branchFilteredOrders.filter((o) => o.status === "new");
+  const processingOrders = branchFilteredOrders.filter(
+    (o) => o.status === "preparing" || o.status === "delivering"
+  );
+  const historyOrders = branchFilteredOrders.filter(
+    (o) => o.status === "completed" || o.status === "cancelled"
+  );
+
+  const todayRevenue = branchFilteredOrders
     .filter((o) => o.status === "completed")
     .reduce((sum, o) => sum + o.total, 0);
 
-  const displayedOrders = 
-    activeOrderTab === "pending" ? pendingOrders :
-    activeOrderTab === "processing" ? processingOrders : historyOrders;
+  const displayedOrders =
+    activeOrderTab === "pending"
+      ? pendingOrders
+      : activeOrderTab === "processing"
+      ? processingOrders
+      : historyOrders;
 
   // Lọc món theo danh mục
   const filteredMenuItems = selectedCategoryFilter === "all" 
@@ -548,7 +855,7 @@ export default function StoreDashboard() {
           <form onSubmit={handleLogin} className="space-y-4">
             <input
               type="password"
-              placeholder="Nhập mã PIN (Mặc định: 1234)"
+              placeholder="Nhập mã PIN quản lý"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               className="w-full text-center tracking-widest text-lg font-black bg-slate-950 border border-slate-800 rounded-2xl py-3.5 focus:border-orange-500 focus:outline-none text-white focus:ring-2 focus:ring-orange-950/50"
@@ -565,7 +872,7 @@ export default function StoreDashboard() {
             </button>
           </form>
           <div className="text-[11px] text-slate-500">
-            Bạn có thể đổi mã PIN này bất cứ lúc nào trong file config/shop.ts
+            Mã PIN quản trị được bảo mật trên máy chủ (Server-side)
           </div>
         </div>
       </main>
@@ -592,9 +899,12 @@ export default function StoreDashboard() {
                 <ShoppingBag className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h1 className="font-black text-sm sm:text-base leading-tight text-white tracking-tight truncate">
-                  {SHOP_CONFIG.name}
-                </h1>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="font-black text-sm sm:text-base leading-tight text-white tracking-tight truncate">
+                    {SHOP_CONFIG.name}
+                  </h1>
+                  <RealtimeStatusBadge status={connectionStatus} onReconnect={handleReconnect} />
+                </div>
                 <span className="text-[10px] sm:text-xs text-orange-500 font-semibold tracking-wider uppercase block truncate">
                   Bảng điều khiển Bếp & Thực đơn
                 </span>
@@ -639,7 +949,20 @@ export default function StoreDashboard() {
           </div>
 
           {/* Bottom Row on Mobile / Right side on Desktop */}
-          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto flex-wrap">
+            {/* Bộ lọc chi nhánh */}
+            <div className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800 text-xs shrink-0">
+              <MapPin className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+              <select
+                value={selectedBranchId}
+                onChange={(e) => setSelectedBranchId(e.target.value)}
+                className="bg-transparent text-white font-bold text-xs focus:outline-none cursor-pointer"
+              >
+                <option value="all" className="bg-slate-900 text-white">Tất cả chi nhánh</option>
+                <option value="b1000000-0000-0000-0000-000000000001" className="bg-slate-900 text-white">Chi nhánh Thủ Đức</option>
+              </select>
+            </div>
+
             {/* Chuyển đổi View: Đơn hàng vs Thực đơn */}
             <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center gap-1 flex-1 sm:flex-initial">
               <button

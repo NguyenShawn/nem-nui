@@ -19,7 +19,6 @@ export interface ShopConfig {
   };
   shippingFee: number; // Phí giao hàng cố định (VNĐ)
   minOrderAmount: number; // Đơn hàng tối thiểu để đặt (VNĐ)
-  adminPin: string; // Mã PIN để đăng nhập màn hình bếp/quản lý của quán (vd: "1234")
   momo: {
     phone: string; // Số điện thoại đăng ký MoMo
     accountName: string; // Tên chủ tài khoản MoMo (IN HOA)
@@ -29,14 +28,23 @@ export interface ShopConfig {
     zalo?: string;
     facebook?: string;
   };
+  businessEntity?: {
+    name: string;
+    owner: string;
+    taxId?: string;
+  };
 }
 
 export const SHOP_CONFIG: ShopConfig = {
-  // Mã PIN bảo mật màn hình bếp (Web Quán / Bếp)
-  adminPin: "1234",
-
   // Tên quán ăn hiển thị trên web và thông báo
   name: "Nem Núi - Đặc Sản Nem Nướng",
+
+  // Pháp nhân kinh doanh chính thức
+  businessEntity: {
+    name: "Hộ Kinh Doanh Nem Núi",
+    owner: "Nguyễn Trường Sơn",
+    taxId: "8492048291",
+  },
 
   // Câu khẩu hiệu / giới thiệu ngắn
   slogan: "Thơm ngon chuẩn vị • Nước chấm gia truyền • Giao tận nơi nóng hổi",
@@ -47,14 +55,14 @@ export const SHOP_CONFIG: ShopConfig = {
   // Số điện thoại hiển thị đẹp mắt cho khách xem
   displayPhone: "0369 652 674",
 
-  // Địa chỉ quán ăn
-  address: "123 Đường Số 7, Phường Linh Trung, TP. Thủ Đức, TP. Hồ Chí Minh",
+  // Địa chỉ quán ăn và xưởng sản xuất chuẩn SSOT (Bình Chánh HQ)
+  address: "KCN Vĩnh Lộc, Xã Vĩnh Lộc A, Huyện Bình Chánh, TP. Hồ Chí Minh",
 
   // Giờ mở cửa hàng ngày (Dùng để kiểm tra ngoài giờ đặt món)
   openingHours: {
-    open: "09:00",
-    close: "21:30",
-    daysNote: "Mở cửa hàng ngày: 09:00 - 21:30",
+    open: "08:00",
+    close: "22:00",
+    daysNote: "Mở cửa hàng ngày: 08:00 - 22:00",
   },
 
   // Phí giao hàng (VNĐ) - hiển thị trong giỏ hàng và cộng vào tổng đơn

@@ -9,6 +9,9 @@ export const RETAIL_ORDER_URL = "/dat-le";
 export const LANDING_CONFIG = {
   brand: {
     name: "Nem Núi",
+    entityName: "Hộ Kinh Doanh Nem Núi",
+    owner: "Nguyễn Trường Sơn",
+    taxId: "8492048291",
     badge: "Sỉ từ 100 cây",
     tagline: "Hương vị đậm đà, kết nối kinh doanh",
     description:
@@ -16,9 +19,9 @@ export const LANDING_CONFIG = {
     hotline: "0369652674",
     hotlineDisplay: "0369 652 674",
     zalo: "https://zalo.me/0369652674",
-    address: "Kho Tổng & Xưởng Sản Xuất: Đường số 7, KCN Vĩnh Lộc, Bình Chánh, TP.HCM",
+    address: "KCN Vĩnh Lộc, Xã Vĩnh Lộc A, Huyện Bình Chánh, TP. Hồ Chí Minh",
     provinceDelivery: "Đóng thùng xốp đá gel gửi bến xe Miền Tây & Miền Đông đi các tỉnh",
-    operatingHours: "06:00 - 22:00 (Thứ 2 - Chủ Nhật)",
+    operatingHours: "08:00 - 22:00 (Thứ 2 - Chủ Nhật)",
   },
   
   // 4 USP cạnh tranh bỏ mối

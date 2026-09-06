@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { Check, Copy, QrCode, ArrowRight, ShieldCheck } from "lucide-react";
 import { SHOP_CONFIG } from "@/config/shop";
 import { formatCurrency, getMomoQrUrl } from "@/lib/utils";
+import { getSupabaseBrowserClient, supabaseClient } from "@/lib/supabase";
 
 interface MomoPaymentModalProps {
   isOpen: boolean;
@@ -25,6 +26,47 @@ export function MomoPaymentModal({
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isPaidSuccess, setIsPaidSuccess] = useState(false);
+
+  // Lắng nghe trạng thái thanh toán từ Supabase Realtime CDC trên bảng orders
+  useEffect(() => {
+    if (!isOpen || !orderCode) {
+      setIsPaidSuccess(false);
+      return;
+    }
+
+    const client = getSupabaseBrowserClient() || supabaseClient;
+    if (!client) return;
+
+    const channel = client
+      .channel(`momo-payment-${orderCode}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "orders",
+          filter: `code=eq.${orderCode}`,
+        },
+        (payload: any) => {
+          const updated = payload.new;
+          if (updated && (updated.status === "paid" || updated.momo_confirmed === true)) {
+            setIsPaidSuccess(true);
+            showToast("success", "Thanh toán đã được đối soát thành công!");
+            setTimeout(() => {
+              onPaidConfirmed();
+            }, 1200);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (channel && client) {
+        client.removeChannel(channel);
+      }
+    };
+  }, [isOpen, orderCode, onPaidConfirmed, showToast]);
 
   const handleConfirmClick = async () => {
     setIsConfirming(true);
@@ -43,6 +85,31 @@ export function MomoPaymentModal({
   };
 
   if (!isOpen) return null;
+
+  // Hiển thị màn hình Tick Xanh Thành Công khi Webhook đổi status sang 'paid'
+  if (isPaidSuccess) {
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs transition-opacity animate-fade-in" />
+        <div className="min-h-full flex items-center justify-center p-4">
+          <div className="relative bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center animate-scale-up border border-emerald-100">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center mb-4 border-2 border-emerald-200 shadow-sm animate-bounce">
+              <Check className="w-8 h-8 stroke-[3]" />
+            </div>
+            <h3 className="text-xl font-black text-slate-900 mb-1">
+              Thanh toán thành công!
+            </h3>
+            <p className="text-xs text-slate-600 leading-relaxed mb-4">
+              Đơn hàng <strong>#{orderCode}</strong> đã được đối soát tự động. Bếp Nem Núi đang chuẩn bị nướng nem cho bạn!
+            </p>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Đã gạch nợ thành công
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const copyToClipboard = (text: string, type: "code" | "phone") => {
     navigator.clipboard.writeText(text);

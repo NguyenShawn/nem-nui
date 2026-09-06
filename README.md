@@ -2,6 +2,8 @@
 
 Ứng dụng đặt món ăn trực tuyến một trang (Single-Page Order) chuẩn **Mobile-First**, tối ưu cho các quán ăn nhỏ tại Việt Nam.
 
+> 📘 **Sổ Tay Kỹ Thuật & Hướng Dẫn Phát Triển Tương Lai:** Xem chi tiết tại [DEVELOPMENT_GUIDE.md](file:///c:/Users/ADMIN/Desktop/bussiness/Nem%20Núi/DEVELOPMENT_GUIDE.md) để nắm các nguyên tắc bất biến (Zero Secrets, Zero fs, Fail-Closed), playbooks mở rộng chi nhánh, tích hợp cổng thanh toán mới, đơn vị vận chuyển 3PL và quản lý kho định lượng (BOM).
+
 ---
 
 ## ✨ Tính Năng Nổi Bật

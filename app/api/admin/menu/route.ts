@@ -5,29 +5,21 @@ import {
   toggleItemAvailability,
   deleteMenuItem,
 } from "@/lib/menuDb";
-import { SHOP_CONFIG } from "@/config/shop";
+import { verifyAdminAuth, createUnauthorizedResponse } from "@/lib/auth";
 import { MenuItem } from "@/data/menu";
 
 export const dynamic = "force-dynamic";
 
-// Helper xác thực mã PIN quản trị
-function verifyAdminPin(req: NextRequest, bodyPin?: string): boolean {
-  const url = new URL(req.url);
-  const pinParam = url.searchParams.get("pin");
-  const pinHeader = req.headers.get("x-admin-pin");
-  const providedPin = bodyPin || pinParam || pinHeader;
-
-  return providedPin === SHOP_CONFIG.adminPin;
-}
-
 /**
  * GET /api/admin/menu
- * Lấy danh sách menu chi tiết cho chủ quán
+ * Lấy danh sách menu chi tiết cho chủ quán.
+ * Xác thực an toàn qua Header (Authorization, x-admin-key, x-admin-pin).
+ * Không chấp nhận URL query parameter ?pin=.
  */
 export async function GET(req: NextRequest) {
   try {
-    if (!verifyAdminPin(req)) {
-      return NextResponse.json({ error: "Mã PIN không chính xác." }, { status: 401 });
+    if (!verifyAdminAuth(req)) {
+      return createUnauthorizedResponse();
     }
 
     const menuData = readLocalMenu();
@@ -51,8 +43,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { item, pin } = body;
 
-    if (!verifyAdminPin(req, pin)) {
-      return NextResponse.json({ error: "Mã PIN không chính xác." }, { status: 401 });
+    if (!verifyAdminAuth(req, pin)) {
+      return createUnauthorizedResponse("Mã PIN không chính xác.");
     }
 
     if (!item || !item.name || typeof item.price !== "number" || item.price < 0) {
@@ -94,8 +86,8 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const { item, pin } = body;
 
-    if (!verifyAdminPin(req, pin)) {
-      return NextResponse.json({ error: "Mã PIN không chính xác." }, { status: 401 });
+    if (!verifyAdminAuth(req, pin)) {
+      return createUnauthorizedResponse("Mã PIN không chính xác.");
     }
 
     if (!item || !item.id || !item.name || typeof item.price !== "number" || item.price < 0) {
@@ -137,8 +129,8 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { id, available, pin } = body;
 
-    if (!verifyAdminPin(req, pin)) {
-      return NextResponse.json({ error: "Mã PIN không chính xác." }, { status: 401 });
+    if (!verifyAdminAuth(req, pin)) {
+      return createUnauthorizedResponse("Mã PIN không chính xác.");
     }
 
     if (!id) {
@@ -168,21 +160,19 @@ export async function DELETE(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const idParam = url.searchParams.get("id");
-    const pinParam = url.searchParams.get("pin");
 
     let id = idParam;
-    let pin = pinParam;
+    let bodyPin: string | undefined;
 
-    if (!id) {
-      try {
-        const body = await req.json();
-        id = body.id;
-        pin = body.pin;
-      } catch {}
-    }
+    try {
+      const body = await req.json();
+      if (!id) id = body.id;
+      bodyPin = body.pin;
+    } catch {}
 
-    if (!verifyAdminPin(req, pin || undefined)) {
-      return NextResponse.json({ error: "Mã PIN không chính xác." }, { status: 401 });
+    // Xác thực qua Header hoặc body PIN (Không nhận PIN qua Query URL)
+    if (!verifyAdminAuth(req, bodyPin)) {
+      return createUnauthorizedResponse("Mã PIN không chính xác.");
     }
 
     if (!id) {

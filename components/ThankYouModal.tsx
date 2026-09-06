@@ -15,6 +15,7 @@ import {
 import { CartItem, OrderStatus, PaymentMethod } from "@/types/order";
 import { formatCurrency } from "@/lib/utils";
 import { SHOP_CONFIG } from "@/config/shop";
+import { getSupabaseBrowserClient, supabaseClient } from "@/lib/supabase";
 
 interface ThankYouModalProps {
   isOpen: boolean;
@@ -45,7 +46,7 @@ export function ThankYouModal({
   const [cancelReason, setCancelReason] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Tự động kiểm tra trạng thái đơn hàng mỗi 3 giây (chống cache triệt để)
+  // Khởi tạo trạng thái ban đầu và lắng nghe Supabase Realtime WebSocket (Zero Polling)
   useEffect(() => {
     if (!isOpen || !orderCode) return;
 
@@ -54,7 +55,7 @@ export function ThankYouModal({
     setCancelReason(null);
     setErrorMessage("");
 
-    const fetchStatus = async () => {
+    const fetchStatusOnce = async () => {
       try {
         const response = await fetch(`/api/order/status?code=${encodeURIComponent(orderCode)}&t=${Date.now()}`, {
           cache: "no-store",
@@ -74,15 +75,44 @@ export function ThankYouModal({
           }
         }
       } catch (err: any) {
-        console.error("Lỗi cập nhật tiến độ đơn hàng:", err);
+        console.error("Lỗi khởi tạo trạng thái đơn hàng:", err);
       }
     };
 
     // Chạy ngay lần đầu
-    fetchStatus();
+    fetchStatusOnce();
 
-    const interval = setInterval(fetchStatus, 3000);
-    return () => clearInterval(interval);
+    // Lắng nghe Realtime WebSocket CDC theo mã đơn
+    const client = getSupabaseBrowserClient() || supabaseClient;
+    if (!client) return;
+
+    const channel = client
+      .channel(`order-status-${orderCode}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "orders",
+          filter: `code=eq.${orderCode}`,
+        },
+        (payload: any) => {
+          const updated = payload.new;
+          if (updated && updated.status) {
+            setCurrentStatus(updated.status);
+            if (updated.cancel_reason) {
+              setCancelReason(updated.cancel_reason);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (channel && client) {
+        client.removeChannel(channel);
+      }
+    };
   }, [isOpen, orderCode]);
 
   if (!isOpen) return null;

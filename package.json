@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "tsx scripts/test_suite.mjs",
+    "test:e2e": "node tests/e2e/run_all.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.48.1",

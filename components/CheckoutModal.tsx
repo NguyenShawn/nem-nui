@@ -16,6 +16,7 @@ import {
 import { CartItem, OrderApiResponse, PaymentMethod } from "@/types/order";
 import { formatCurrency, isValidVNPhone } from "@/lib/utils";
 import { SHOP_CONFIG } from "@/config/shop";
+import { PrivacyConsentCheckbox } from "./PrivacyConsentCheckbox";
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export function CheckoutModal({
   const [note, setNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("momo");
   const [honeypot, setHoneypot] = useState(""); // Anti-bot honeypot field
+  const [consentChecked, setConsentChecked] = useState(false); // Decree 13/2023/NĐ-CP opt-in consent
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,6 +71,10 @@ export function CheckoutModal({
       errs.address = "Địa chỉ cần chi tiết từ 10 ký tự trở lên (số nhà, tên đường, phường/xã)";
     }
 
+    if (!consentChecked) {
+      errs.consent = "Vui lòng đồng ý với Chính sách xử lý dữ liệu cá nhân theo Nghị định 13/2023/NĐ-CP để hoàn tất đặt hàng";
+    }
+
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -91,6 +97,7 @@ export function CheckoutModal({
         note: note.trim() || undefined,
         paymentMethod,
         honeypot: honeypot.trim(), // Gửi honeypot
+        consentChecked, // Nghị định 13/2023/NĐ-CP PII consent
         items: cart.map((item) => ({
           id: item.id,
           qty: item.quantity,
@@ -340,6 +347,19 @@ export function CheckoutModal({
                   </span>
                 </label>
               </div>
+
+              {/* Cảnh báo đặt cọc cho đơn COD trên 150k */}
+              {paymentMethod === "cod" && grandTotal > 150000 && (
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-start gap-2.5 animate-fade-in">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-amber-950">Chính sách cọc đơn COD trên 150.000đ:</p>
+                    <p className="mt-0.5 text-amber-800 leading-relaxed">
+                      Món nướng than hoa tươi nóng cần chuẩn bị công phu. Đơn COD trên 150.000đ yêu cầu cọc trước <strong>30.000đ</strong> (hoặc nhân viên quán sẽ gọi xác nhận trước khi nướng nem). Quý khách có thể chuyển sang <strong>Chuyển khoản MoMo</strong> để được phục vụ nhanh nhất!
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Tóm tắt thanh toán */}
@@ -360,11 +380,25 @@ export function CheckoutModal({
               </div>
             </div>
 
+            {/* Điều khoản bảo vệ dữ liệu cá nhân Nghị định 13/2023/NĐ-CP */}
+            <div className="p-3 bg-stone-50 border border-stone-200 rounded-2xl">
+              <PrivacyConsentCheckbox
+                id="checkout-consent-checkbox"
+                checked={consentChecked}
+                onChange={(checked) => {
+                  setConsentChecked(checked);
+                  if (errors.consent) setErrors((prev) => ({ ...prev, consent: "" }));
+                }}
+                error={errors.consent}
+                required
+              />
+            </div>
+
             {/* Nút Submit */}
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 active:scale-[0.98] text-white font-black text-sm rounded-xl shadow-lg shadow-orange-600/30 flex items-center justify-center gap-2 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+              disabled={isSubmitting || !consentChecked}
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 active:scale-[0.98] text-white font-black text-sm rounded-xl shadow-lg shadow-orange-600/30 flex items-center justify-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>

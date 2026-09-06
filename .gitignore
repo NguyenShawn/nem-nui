@@ -1,34 +1,49 @@
-# dependencies
+# ==============================================================================
+# NEM NÚI APPLICATION GITIGNORE
+# Project: Nem Núi Enterprise Refactoring
+# Milestone: M1 (Security & Privacy Hardening)
+# ==============================================================================
+
+# Dependencies
 /node_modules
 /.pnp
 .pnp.js
 
-# testing
+# Testing & Coverage
 /coverage
 
-# next.js
+# Next.js Build Outputs
 /.next/
 /out/
-
-# production
 /build
 
-# misc
-.DS_Store
-*.pem
+# Environment Secret Files (PII & API Credential Protection)
+.env*
+!.env.example
 
-# debug
+# Local Database Files & Customer PII
+/data/*.json
+!/data/menu.ts
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+# Logs & Debugging
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+*.log
 
-# local env files (do NOT commit secrets)
-.env*.local
-.env
+# Misc & Operating System
+.DS_Store
+Thumbs.db
+*.pem
 
-# vercel / netlify
+# Deployment Platforms
 .vercel
 .netlify
 
-# typescript
+# TypeScript Build Info
 *.tsbuildinfo

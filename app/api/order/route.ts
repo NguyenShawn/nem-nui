@@ -12,7 +12,7 @@ import { OrderItemPayload, PaymentMethod } from "@/types/order";
 const lastOrderTimeMap = new Map<string, number>();
 
 // Tự động dọn dẹp cache sau mỗi 10 phút để tránh rò rỉ bộ nhớ
-setInterval(() => {
+const cleanupInterval = setInterval(() => {
   const now = Date.now();
   lastOrderTimeMap.forEach((timestamp, phone) => {
     if (now - timestamp > 10 * 60 * 1000) {
@@ -20,6 +20,9 @@ setInterval(() => {
     }
   });
 }, 10 * 60 * 1000);
+if (typeof cleanupInterval === "object" && typeof cleanupInterval?.unref === "function") {
+  cleanupInterval.unref();
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,13 +34,15 @@ export async function POST(req: NextRequest) {
       note,
       items,
       paymentMethod,
+      website_url,
       honeypot,
     } = body;
 
     // 1. CHỐNG BOT SPAM BẰNG HONEYPOT
-    // Nếu bot tự điền trường honeypot ẩn, trả về 200 giả vờ thành công nhưng không ghi nhận
-    if (honeypot && String(honeypot).trim().length > 0) {
-      console.warn("[Anti-Spam] Bot detected via honeypot field:", honeypot);
+    // Nếu bot tự điền trường honeypot ẩn (website_url hoặc honeypot), trả về 200 giả vờ thành công nhưng không ghi nhận
+    const rawHoneypot = website_url || honeypot;
+    if (rawHoneypot && String(rawHoneypot).trim().length > 0) {
+      console.warn("[Anti-Spam] Bot detected via honeypot field:", rawHoneypot);
       return NextResponse.json({
         success: true,
         code: generateOrderCode(),
@@ -173,8 +178,10 @@ export async function POST(req: NextRequest) {
 
     // Kiểm tra đơn tối thiểu:
     // Đơn thông thường tối thiểu 30.000đ.
-    // Nếu có Kit mẫu thử trợ giá (kit-nem-mau-thu) thì cho phép mức tối thiểu đặc thù 25.000đ.
-    const hasSampleKit = verifiedOrderItems.some((i) => i.id === "kit-nem-mau-thu");
+    // Nếu có Kit mẫu thử trợ giá (kit-nem-mau-thu / kit-mau-thu-25k) thì cho phép mức tối thiểu đặc thù 25.000đ.
+    const hasSampleKit = verifiedOrderItems.some(
+      (i) => i.id === "kit-nem-mau-thu" || i.id === "kit-mau-thu-25k"
+    );
     const requiredMinOrder = hasSampleKit ? 25000 : SHOP_CONFIG.minOrderAmount;
 
     if (calculatedSubtotal < requiredMinOrder) {
@@ -191,30 +198,48 @@ export async function POST(req: NextRequest) {
     const shippingFee = SHOP_CONFIG.shippingFee;
     const finalTotal = calculatedSubtotal + shippingFee;
 
+    // Xử lý ghi chú đơn hàng và gắn tag cảnh báo cọc đơn COD > 150k
+    let finalNote = note ? String(note).slice(0, 500).trim() : null;
+    if (selectedPaymentMethod === "cod" && finalTotal > 150000) {
+      finalNote = finalNote
+        ? `${finalNote} • [Đơn COD > 150k - Cần xác nhận cọc 30k]`
+        : `[Đơn COD > 150k - Cần xác nhận cọc 30k]`;
+    }
+
     // 5. SINH MÃ ĐƠN HÀNG 6 KÝ TỰ NGẪU NHIÊN
     const orderCode = generateOrderCode();
 
     // 6. LƯU ĐƠN HÀNG VÀO HỆ THỐNG DỮ LIỆU (SUPABASE + LOCAL BACKUP)
-    await saveNewOrder({
+    const saveResult = await saveNewOrder({
       code: orderCode,
       customer_name: cleanName,
       phone: cleanPhone,
       address: cleanAddress,
-      note: note ? String(note).slice(0, 500).trim() : null,
+      note: finalNote,
       items: verifiedOrderItems,
       total: finalTotal,
       payment_method: selectedPaymentMethod,
       status: "new",
     });
 
+    if (!saveResult.success) {
+      console.error("[API Order] Lưu đơn hàng thất bại:", saveResult.error);
+      return NextResponse.json(
+        { error: saveResult.error || "Không thể lưu đơn hàng. Vui lòng thử lại sau ít phút." },
+        { status: 500 }
+      );
+    }
+
+    const confirmedOrderCode = saveResult.code || saveResult.order?.code || orderCode;
+
     // 7. GỬI TIN NHẮN VÀ LƯU DỮ LIỆU ĐA KÊNH
     // 7.1. Gửi vào Google Sheets tự động (Lớp 2 - Sổ sách & Email)
     sendOrderToGoogleSheets({
-      orderCode,
+      orderCode: confirmedOrderCode,
       customerName: cleanName,
       phone: cleanPhone,
       address: cleanAddress,
-      note: note ? String(note).trim() : undefined,
+      note: finalNote || undefined,
       items: verifiedOrderItems,
       total: finalTotal,
       paymentMethod: selectedPaymentMethod,
@@ -222,11 +247,11 @@ export async function POST(req: NextRequest) {
 
     // 7.2. Gửi vào Discord Webhook nếu có cấu hình
     sendDiscordOrderNotification({
-      orderCode,
+      orderCode: confirmedOrderCode,
       customerName: cleanName,
       phone: cleanPhone,
       address: cleanAddress,
-      note: note ? String(note).trim() : undefined,
+      note: finalNote || undefined,
       items: verifiedOrderItems,
       total: finalTotal,
       paymentMethod: selectedPaymentMethod,
@@ -238,7 +263,7 @@ export async function POST(req: NextRequest) {
     // 8. TRẢ KẾT QUẢ VỀ CHO CLIENT
     return NextResponse.json({
       success: true,
-      code: orderCode,
+      code: confirmedOrderCode,
       total: finalTotal,
       subtotal: calculatedSubtotal,
       shippingFee: shippingFee,

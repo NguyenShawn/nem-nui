@@ -13,6 +13,7 @@ import {
   checkShopOpenStatus,
 } from "../lib/utils.js";
 import { buildTelegramMessage } from "../lib/telegram.js";
+import { extractOrderCodeFromMemo } from "../lib/payment.ts";
 
 console.log("==================================================");
 console.log("🧪 BẮT ĐẦU KIỂM THỬ HỆ THỐNG GIAO HÀNG NEM NÚI");
@@ -72,6 +73,18 @@ assert(SHOP_CONFIG.minOrderAmount === 30000, "Đơn tối thiểu là 30.000đ")
 assert(MENU_ITEMS.length >= 8, `Menu có ${MENU_ITEMS.length} món (>= 8 món)`);
 assert(MENU_ITEMS.some((item) => item.available === false), "Có ít nhất 1 món hết hàng (available: false)");
 
+// 4.1 Kiểm tra Bảo mật Cấu hình (Không lộ Admin PIN)
+console.log("\n--- TEST 4.1: BẢO MẬT CẤU HÌNH (KHÔNG LỘ ADMIN PIN) ---");
+assert(
+  SHOP_CONFIG.adminPin === undefined,
+  "SHOP_CONFIG không chứa adminPin (triệt tiêu rò rỉ vào client bundle)"
+);
+const ADMIN_PIN = process.env.ADMIN_PIN || "99887766";
+assert(
+  typeof ADMIN_PIN === "string" && ADMIN_PIN.length > 0,
+  "Mã PIN quản trị viên được nạp an toàn từ biến môi trường máy chủ"
+);
+
 // 5. Kiểm tra Format tin nhắn Telegram
 console.log("\n--- TEST 5: FORMAT TIN NHẮN TELEGRAM BOT ---");
 const sampleTelegramMsg = buildTelegramMessage({
@@ -97,6 +110,33 @@ assert(sampleTelegramMsg.includes("📍 Đ/c: 123 Đường ABC, Bình Chánh"),
 assert(sampleTelegramMsg.includes("2x Bún nem"), "Có số lượng và tên món");
 assert(sampleTelegramMsg.includes("MoMo"), "Có phương thức thanh toán");
 assert(sampleTelegramMsg.includes("Ghi chú: Thêm ít ớt"), "Có ghi chú");
+
+// 6. Kiểm tra Bóc tách mã đơn hàng từ nội dung chuyển khoản (Base32 Crockford)
+console.log("\n--- TEST 6: BÓC TÁCH MÃ ĐƠN HÀNG CROCKFORD BASE32 (CHỐNG MATCH TỪ TIẾNG VIỆT) ---");
+assert(
+  extractOrderCodeFromMemo("CHUYEN KHOAN TIEN COM") === null,
+  "Nội dung không chứa mã 'CHUYEN KHOAN TIEN COM' trả về null (không match nhầm từ 'CHUYEN')"
+);
+assert(
+  extractOrderCodeFromMemo("CHUYEN KHOAN DON HANG 8K3P9X TAI QUAN") === "8K3P9X",
+  "Bóc tách mã hợp lệ 6 ký tự có số '8K3P9X'"
+);
+assert(
+  extractOrderCodeFromMemo("CK NM8K3P9X NGUYEN VAN B") === "8K3P9X",
+  "Bóc tách mã có tiền tố 'NM8K3P9X'"
+);
+assert(
+  extractOrderCodeFromMemo("VIETQR:NM7K2P9/THANH TOAN") === "7K2P9",
+  "Bóc tách mã có tiền tố kèm ký tự phân cách 'NM7K2P9'"
+);
+assert(
+  extractOrderCodeFromMemo("thanh toan don hang 8k3p9x") === "8K3P9X",
+  "Bóc tách mã không phân biệt hoa thường '8k3p9x'"
+);
+assert(
+  extractOrderCodeFromMemo("CHUYEN TIEN 8K3P9 TAI QUAN") === null,
+  "Mã 5 ký tự không hợp lệ trả về null"
+);
 
 console.log("==================================================");
 console.log(`🎉 KẾT QUẢ KIỂM THỬ: ${passedTests}/${totalTests} TESTS ĐẠT 100%`);

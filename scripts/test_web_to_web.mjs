@@ -8,7 +8,8 @@ import { POST } from "../app/api/order/route.ts";
 import { GET as getAdminOrders, PATCH as patchAdminOrders } from "../app/api/admin/orders/route.ts";
 import { GET as getOrderStatus } from "../app/api/order/status/route.ts";
 import { NextRequest } from "next/server";
-import { SHOP_CONFIG } from "../config/shop.ts";
+
+const ADMIN_PIN = process.env.ADMIN_PIN || "99887766";
 
 console.log("==================================================");
 console.log("🧪 BẮT ĐẦU KIỂM THỬ LUỒNG THỜI GIAN THỰC WEB-TO-WEB");
@@ -69,12 +70,16 @@ async function runWebToWebTests() {
   // 3. Truy cập danh sách đơn của Bếp (Web Quán -> GET /api/admin/orders)
   {
     // Thử dùng PIN sai
-    const reqWrongPin = new NextRequest(`http://localhost:3000/api/admin/orders?pin=SAIPIN`);
+    const reqWrongPin = new NextRequest("http://localhost:3000/api/admin/orders", {
+      headers: { "x-admin-key": "SAIPIN" },
+    });
     const resWrongPin = await getAdminOrders(reqWrongPin);
     assert(resWrongPin.status === 401, "Từ chối truy cập danh sách đơn bếp khi sai mã PIN (401)");
 
     // Dùng PIN đúng
-    const reqCorrectPin = new NextRequest(`http://localhost:3000/api/admin/orders?pin=${SHOP_CONFIG.adminPin}`);
+    const reqCorrectPin = new NextRequest("http://localhost:3000/api/admin/orders", {
+      headers: { "x-admin-key": ADMIN_PIN },
+    });
     const resCorrectPin = await getAdminOrders(reqCorrectPin);
     const data = await resCorrectPin.json();
 
@@ -89,10 +94,11 @@ async function runWebToWebTests() {
   {
     const req = new NextRequest("http://localhost:3000/api/admin/orders", {
       method: "PATCH",
+      headers: { "x-admin-key": ADMIN_PIN },
       body: JSON.stringify({
         code: createdOrderCode,
         status: "preparing",
-        pin: SHOP_CONFIG.adminPin,
+        pin: ADMIN_PIN,
       }),
     });
 
@@ -116,10 +122,11 @@ async function runWebToWebTests() {
   {
     const req = new NextRequest("http://localhost:3000/api/admin/orders", {
       method: "PATCH",
+      headers: { "x-admin-key": ADMIN_PIN },
       body: JSON.stringify({
         code: createdOrderCode,
         status: "completed",
-        pin: SHOP_CONFIG.adminPin,
+        pin: ADMIN_PIN,
       }),
     });
 
@@ -139,6 +146,7 @@ async function runWebToWebTests() {
   console.log("==================================================");
   console.log(`🎉 KẾT QUẢ KIỂM THỬ: ${passedTests}/${totalTests} TESTS ĐẠT 100%`);
   console.log("==================================================");
+  process.exit(passedTests === totalTests ? 0 : 1);
 }
 
 runWebToWebTests();

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  getOrders,
   getAllOrders,
   updateOrderStatusInDb,
   getOrderByCode,
   deleteOrderFromDb,
   clearOrderHistoryFromDb,
 } from "@/lib/orderDb";
-import { SHOP_CONFIG } from "@/config/shop";
+import { verifyAdminAuth, createUnauthorizedResponse } from "@/lib/auth";
 import { OrderStatus } from "@/types/order";
 import {
   sendDiscordOrderCompletedNotification,
@@ -15,31 +16,25 @@ import {
 
 export const dynamic = "force-dynamic";
 
-// Hàm helper xác thực mã PIN quản lý của quán
-function verifyPin(req: NextRequest): boolean {
-  // Lấy PIN từ Query Parameter hoặc từ Header
-  const url = new URL(req.url);
-  const pinParam = url.searchParams.get("pin");
-  const pinHeader = req.headers.get("x-admin-pin");
-
-  const providedPin = pinParam || pinHeader;
-  return providedPin === SHOP_CONFIG.adminPin;
-}
-
 /**
  * GET /api/admin/orders
- * Lấy toàn bộ danh sách đơn hàng cho giao diện Bếp/Quản lý của quán
+ * Lấy danh sách đơn hàng cho giao diện Bếp/Quản lý của quán (hỗ trợ lọc ?branchId=).
+ * Xác thực an toàn qua Header (Authorization: Bearer <token>, x-admin-key, hoặc x-admin-pin).
+ * Tham số URL query ?pin= bị loại bỏ hoàn toàn.
+ * Đối chiếu với process.env.ADMIN_PIN (mặc định: "99887766") hoặc ADMIN_SECRET.
+ * Trả về 401 Unauthorized nếu không có hoặc sai quyền quản trị.
  */
 export async function GET(req: NextRequest) {
   try {
-    if (!verifyPin(req)) {
-      return NextResponse.json(
-        { error: "Mã PIN quản lý không chính xác hoặc đã hết hạn." },
-        { status: 401 }
-      );
+    if (!verifyAdminAuth(req)) {
+      return createUnauthorizedResponse();
     }
 
-    const orders = await getAllOrders();
+    const branchId =
+      req.nextUrl.searchParams.get("branchId") ||
+      req.nextUrl.searchParams.get("branch_id") ||
+      undefined;
+    const orders = await getOrders(branchId);
     return NextResponse.json({
       success: true,
       orders,
@@ -62,12 +57,9 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { code, status, pin, reason } = body;
 
-    // Xác thực PIN từ body
-    if (pin !== SHOP_CONFIG.adminPin) {
-      return NextResponse.json(
-        { error: "Mã PIN quản lý không chính xác." },
-        { status: 401 }
-      );
+    // Xác thực PIN từ header hoặc body
+    if (!verifyAdminAuth(req, pin)) {
+      return createUnauthorizedResponse("Mã PIN quản lý không chính xác.");
     }
 
     if (!code) {
@@ -171,12 +163,9 @@ export async function DELETE(req: NextRequest) {
     const body = await req.json();
     const { code, clearAllHistory, pin } = body;
 
-    // Xác thực PIN từ body
-    if (pin !== SHOP_CONFIG.adminPin) {
-      return NextResponse.json(
-        { error: "Mã PIN quản lý không chính xác." },
-        { status: 401 }
-      );
+    // Xác thực PIN từ header hoặc body
+    if (!verifyAdminAuth(req, pin)) {
+      return createUnauthorizedResponse("Mã PIN quản lý không chính xác.");
     }
 
     if (clearAllHistory) {

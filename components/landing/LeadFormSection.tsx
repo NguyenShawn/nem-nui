@@ -21,11 +21,13 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import { LANDING_CONFIG } from "@/config/landing";
+import { PrivacyConsentCheckbox } from "@/components/PrivacyConsentCheckbox";
 
 interface FormErrors {
   fullName?: string;
   phone?: string;
   addressNote?: string;
+  consent?: string;
 }
 
 export function LeadFormSection() {
@@ -33,6 +35,8 @@ export function LeadFormSection() {
   const [phone, setPhone] = useState("");
   const [selectedTier, setSelectedTier] = useState("tier_200_500");
   const [addressNote, setAddressNote] = useState("");
+  const [honeypot, setHoneypot] = useState("");
+  const [consentChecked, setConsentChecked] = useState(false); // Nghị định 13/2023/NĐ-CP
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
@@ -62,6 +66,11 @@ export function LeadFormSection() {
         "Số điện thoại không hợp lệ. Vui lòng nhập đúng 10 chữ số (03x, 05x, 07x, 08x, 09x)";
     }
 
+    if (!consentChecked) {
+      newErrors.consent =
+        "Vui lòng xác nhận đồng ý với Chính sách xử lý dữ liệu cá nhân theo Nghị định 13/2023/NĐ-CP";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -80,6 +89,8 @@ export function LeadFormSection() {
       tier: `[BÁO GIÁ SỈ] ${tierObject?.label || selectedTier}`,
       tierLabel: `[BÁO GIÁ SỈ] ${tierObject?.label || selectedTier}`,
       addressNote: addressNote.trim(),
+      consentChecked,
+      website_url: honeypot,
       submittedAt: new Date().toISOString(),
     };
 
@@ -99,6 +110,7 @@ export function LeadFormSection() {
       setFullName("");
       setPhone("");
       setAddressNote("");
+      setConsentChecked(false);
       setErrors({});
     } catch (err) {
       console.error("Lỗi gửi thông tin sỉ:", err);
@@ -257,6 +269,24 @@ export function LeadFormSection() {
 
                 {/* Form Elements */}
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* HONEYPOT TRAP (Chống Bot - Người thật không thấy) */}
+                  <div
+                    className="honeypot-field"
+                    style={{ opacity: 0, position: "absolute", top: 0, left: 0, height: 0, width: 0, zIndex: -1, pointerEvents: "none" }}
+                    aria-hidden="true"
+                  >
+                    <label htmlFor="lead_website_url">Website URL (Leave blank)</label>
+                    <input
+                      id="lead_website_url"
+                      type="text"
+                      name="website_url"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      value={honeypot}
+                      onChange={(e) => setHoneypot(e.target.value)}
+                    />
+                  </div>
+
                   {/* Họ tên / Tên quán */}
                   <div>
                     <label htmlFor="fullName" className="block text-xs font-bold text-stone-800 uppercase tracking-wider mb-1.5 flex items-center justify-between">
@@ -369,12 +399,26 @@ export function LeadFormSection() {
                     </div>
                   </div>
 
+                  {/* Điều khoản bảo vệ dữ liệu cá nhân Nghị định 13/2023/NĐ-CP */}
+                  <div className="p-3 bg-stone-50/80 border border-stone-200 rounded-xl">
+                    <PrivacyConsentCheckbox
+                      id="lead-consent-checkbox"
+                      checked={consentChecked}
+                      onChange={(checked) => {
+                        setConsentChecked(checked);
+                        if (errors.consent) setErrors((prev) => ({ ...prev, consent: undefined }));
+                      }}
+                      error={errors.consent}
+                      required
+                    />
+                  </div>
+
                   {/* Submit Button */}
                   <div className="pt-2">
                     <button
                       type="submit"
-                      disabled={isSubmitting}
-                      className="w-full flex items-center justify-center gap-2 py-3.5 min-h-[48px] text-sm sm:text-base font-bold text-white bg-orange-600 hover:bg-orange-700 active:bg-orange-800 rounded-xl transition-all shadow-md shadow-orange-600/20 disabled:opacity-60 focus:outline-none focus-visible:ring-4 focus-visible:ring-orange-200"
+                      disabled={isSubmitting || !consentChecked}
+                      className="w-full flex items-center justify-center gap-2 py-3.5 min-h-[48px] text-sm sm:text-base font-bold text-white bg-orange-600 hover:bg-orange-700 active:bg-orange-800 rounded-xl transition-all shadow-md shadow-orange-600/20 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-4 focus-visible:ring-orange-200"
                     >
                       {isSubmitting ? (
                         <span>Đang xử lý đăng ký...</span>
