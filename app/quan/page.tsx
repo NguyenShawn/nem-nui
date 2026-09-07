@@ -41,6 +41,12 @@ import { RealtimeStatusBadge, RealtimeConnectionStatus } from "@/components/Real
 export default function StoreDashboard() {
   const [pin, setPin] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isVerifyingSavedSession, setIsVerifyingSavedSession] = useState(() => {
+    if (typeof window !== "undefined") {
+      return Boolean(sessionStorage.getItem("store_admin_pin"));
+    }
+    return false;
+  });
   const [pinError, setPinError] = useState("");
   
   // Quản lý chế độ xem chính: "orders" (Đơn hàng) hoặc "menu" (Thực đơn)
@@ -56,6 +62,7 @@ export default function StoreDashboard() {
 
   // State Realtime & Chi nhánh
   const [connectionStatus, setConnectionStatus] = useState<RealtimeConnectionStatus>("DISCONNECTED");
+  const [realtimeTrigger, setRealtimeTrigger] = useState(0);
   const [selectedBranchId, setSelectedBranchId] = useState<string>("all");
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -185,6 +192,10 @@ export default function StoreDashboard() {
         })
         .then((data) => {
           if (data.success && Array.isArray(data.orders)) {
+            if (data.realtimeConfig?.url && data.realtimeConfig?.anonKey) {
+              getSupabaseBrowserClient(data.realtimeConfig);
+              setRealtimeTrigger((prev) => prev + 1);
+            }
             setOrders(data.orders);
             setIsAuthenticated(true);
           }
@@ -196,7 +207,10 @@ export default function StoreDashboard() {
         })
         .finally(() => {
           setIsLoadingOrders(false);
+          setIsVerifyingSavedSession(false);
         });
+    } else {
+      setIsVerifyingSavedSession(false);
     }
   }, []);
 
@@ -218,6 +232,9 @@ export default function StoreDashboard() {
       }
       const data = await response.json();
       if (data.success && Array.isArray(data.orders)) {
+        if (data.realtimeConfig?.url && data.realtimeConfig?.anonKey) {
+          getSupabaseBrowserClient(data.realtimeConfig);
+        }
         const fetchedOrders: OrderRecord[] = data.orders;
         
         if (prevOrderCodesRef.current.size > 0) {
@@ -355,6 +372,7 @@ export default function StoreDashboard() {
       channelRef.current = null;
     }
     fetchOrders(false);
+    setRealtimeTrigger((prev) => prev + 1);
   };
 
   // Khởi tạo dữ liệu ban đầu + Đăng ký kênh Supabase Realtime WebSocket (Zero-Polling)
@@ -373,7 +391,11 @@ export default function StoreDashboard() {
 
     setConnectionStatus("CONNECTING");
 
+    let isCurrentInstance = true;
+
     const setupChannel = () => {
+      if (!isCurrentInstance) return null;
+
       if (channelRef.current && client) {
         client.removeChannel(channelRef.current);
         channelRef.current = null;
@@ -389,6 +411,7 @@ export default function StoreDashboard() {
             table: "orders",
           },
           (payload: any) => {
+            if (!isCurrentInstance) return;
             handleNewIncomingOrder(payload.new);
           }
         )
@@ -400,6 +423,7 @@ export default function StoreDashboard() {
             table: "orders",
           },
           (payload: any) => {
+            if (!isCurrentInstance) return;
             handleOrderUpdated(payload.new);
           }
         )
@@ -411,10 +435,13 @@ export default function StoreDashboard() {
             table: "orders",
           },
           (payload: any) => {
+            if (!isCurrentInstance) return;
             handleOrderDeleted(payload.old);
           }
         )
         .subscribe((status: string) => {
+          if (!isCurrentInstance) return;
+          console.log("[Supabase Realtime Status]:", status);
           if (status === "SUBSCRIBED") {
             setConnectionStatus("CONNECTED");
             const wasReconnecting = reconnectAttemptsRef.current > 0;
@@ -429,7 +456,7 @@ export default function StoreDashboard() {
               reconnectAttemptsRef.current += 1;
               if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
               reconnectTimeoutRef.current = setTimeout(() => {
-                if (isAuthenticated) {
+                if (isAuthenticated && isCurrentInstance) {
                   setupChannel();
                 }
               }, delay);
@@ -437,7 +464,9 @@ export default function StoreDashboard() {
               setConnectionStatus("DISCONNECTED");
             }
           } else if (status === "CLOSED") {
-            setConnectionStatus("DISCONNECTED");
+            if (isCurrentInstance) {
+              setConnectionStatus("DISCONNECTED");
+            }
           }
         });
 
@@ -459,6 +488,7 @@ export default function StoreDashboard() {
     window.addEventListener("offline", handleOffline);
 
     return () => {
+      isCurrentInstance = false;
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       if (reconnectTimeoutRef.current) {
@@ -470,7 +500,7 @@ export default function StoreDashboard() {
         channelRef.current = null;
       }
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, realtimeTrigger]);
 
   // Đăng nhập bảo mật qua API Header
   const handleLogin = async (e: React.FormEvent) => {
@@ -500,6 +530,10 @@ export default function StoreDashboard() {
 
       const data = await response.json();
       if (data.success && Array.isArray(data.orders)) {
+        if (data.realtimeConfig?.url && data.realtimeConfig?.anonKey) {
+          getSupabaseBrowserClient(data.realtimeConfig);
+          setRealtimeTrigger((prev) => prev + 1);
+        }
         setOrders(data.orders);
         setIsAuthenticated(true);
         sessionStorage.setItem("store_admin_pin", cleanPin);
@@ -901,6 +935,19 @@ export default function StoreDashboard() {
   const filteredMenuItems = selectedCategoryFilter === "all" 
     ? menuItems 
     : menuItems.filter((i) => i.category === selectedCategoryFilter);
+
+  // Trạng thái kiểm tra session đã lưu (chống nháy màn hình khóa PIN khi nhấn F5)
+  if (isVerifyingSavedSession) {
+    return (
+      <main className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
+        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl text-center space-y-4">
+          <div className="w-12 h-12 rounded-full border-4 border-orange-500/20 border-t-orange-500 animate-spin mx-auto" />
+          <h2 className="text-base font-bold text-white tracking-wide">Đang đồng bộ dữ liệu quán...</h2>
+          <p className="text-xs text-slate-400">Đang khôi phục phiên làm việc và kiểm tra kết nối</p>
+        </div>
+      </main>
+    );
+  }
 
   // Màn hình khóa PIN
   if (!isAuthenticated) {

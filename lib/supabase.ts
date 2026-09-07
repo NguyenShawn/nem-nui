@@ -60,9 +60,18 @@ let browserClient: SupabaseClient | null = null;
  * NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.
  * Returns null safely during SSR or when public credentials are not set.
  */
-export function getSupabaseBrowserClient(): SupabaseClient | null {
+export function getSupabaseBrowserClient(overrideConfig?: { url?: string; anonKey?: string }): SupabaseClient | null {
   if (typeof window === "undefined") {
     return null;
+  }
+  if (overrideConfig?.url && overrideConfig?.anonKey) {
+    if (!browserClient) {
+      browserClient = createClient(overrideConfig.url, overrideConfig.anonKey, {
+        auth: { persistSession: true, autoRefreshToken: true },
+        realtime: { params: { eventsPerSecond: 10 } },
+      });
+    }
+    return browserClient;
   }
   if (!browserClient) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
