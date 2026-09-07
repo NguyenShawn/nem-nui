@@ -50,3 +50,9 @@ Thumbs.db
 
 # Private Documentation (Hide README from GitHub Repo Home)
 README.md
+
+# User Uploaded Media Files
+/public/uploads/*
+!/public/uploads/.gitkeep
+!/public/uploads/menu/.gitkeep
+
