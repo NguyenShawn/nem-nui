@@ -90,11 +90,35 @@ export async function saveNewOrder(orderData: NewOrderInput | OrderRecord): Prom
           momo_confirmed: Boolean(orderData.momo_confirmed),
         };
 
-        const { data: insertedOrder, error: orderError } = await supabaseAdmin
+        let { data: insertedOrder, error: orderError } = await supabaseAdmin
           .from("orders")
           .insert(orderInsertPayload)
           .select()
           .single();
+
+        // Resilient fallback nếu bảng orders chưa có các cột mở rộng (PGRST204)
+        if (orderError && (orderError.code === "PGRST204" || (typeof orderError.message === "string" && orderError.message.includes("column")))) {
+          const minimalPayload = {
+            code: currentCode,
+            customer_name: orderData.customer_name,
+            phone: orderData.phone,
+            address: orderData.address,
+            note: orderData.note || null,
+            items: orderData.items,
+            total: orderData.total,
+            payment_method: orderData.payment_method,
+            status: orderData.status || "new",
+          };
+          const retryRes = await supabaseAdmin
+            .from("orders")
+            .insert(minimalPayload)
+            .select()
+            .single();
+          if (!retryRes.error && retryRes.data) {
+            insertedOrder = retryRes.data;
+            orderError = null;
+          }
+        }
 
         if (orderError) {
           lastError = orderError;
@@ -284,7 +308,65 @@ export async function getOrders(branchId?: string, status?: string): Promise<Ord
           };
         });
       }
-      console.error("[OrderDb] Lỗi truy vấn getOrders từ Supabase:", error);
+
+      // Resilient fallback nếu bảng order_items chưa được thiết lập quan hệ (PGRST200)
+      if (error) {
+        console.warn("[OrderDb] Truy vấn với quan hệ order_items thất bại, kích hoạt fallback select trực tiếp:", error.message);
+        let fallbackQuery = supabaseAdmin
+          .from("orders")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (status) {
+          fallbackQuery = fallbackQuery.eq("status", status);
+        }
+
+        const { data: fallbackData, error: fallbackError } = await fallbackQuery;
+        if (!fallbackError && fallbackData) {
+          return fallbackData.map((row: any) => {
+            let extractedCancelReason = row.cancel_reason || null;
+            if (!extractedCancelReason && row.note && row.note.includes("[Lý do hủy:")) {
+              const match = row.note.match(/\[Lý do hủy:\s*([^\]]+)\]/);
+              if (match) extractedCancelReason = match[1].trim();
+            }
+
+            const isMomoConfirmed = Boolean(
+              row.momo_confirmed || (row.note && row.note.includes("[Đã báo CK MoMo]"))
+            );
+
+            let parsedItems: OrderItemPayload[] = [];
+            if (Array.isArray(row.items)) {
+              parsedItems = row.items;
+            } else if (typeof row.items === "string") {
+              try {
+                parsedItems = JSON.parse(row.items);
+              } catch {
+                parsedItems = [];
+              }
+            }
+
+            return {
+              id: row.id,
+              code: row.code,
+              customer_name: row.customer_name,
+              phone: row.phone,
+              address: row.address,
+              note: row.note,
+              items: parsedItems,
+              total: row.total,
+              payment_method: row.payment_method as PaymentMethod,
+              status: row.status as OrderStatus,
+              cancel_reason: extractedCancelReason,
+              momo_confirmed: isMomoConfirmed,
+              transaction_id: row.transaction_id || null,
+              paid_at: row.paid_at || null,
+              branch_id: row.branch_id || null,
+              created_at: row.created_at,
+            };
+          });
+        }
+        console.error("[OrderDb] Lỗi truy vấn fallback getOrders từ Supabase:", fallbackError);
+      }
     } catch (ex) {
       console.error("[OrderDb] Ngoại lệ khi lấy đơn hàng từ Supabase:", ex);
     }
