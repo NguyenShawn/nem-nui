@@ -36,11 +36,12 @@ export async function GET(req: NextRequest) {
       undefined;
     const orders = await getOrders(branchId);
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
-    const supabaseAnonKey =
+    const rawAnonKey =
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
       process.env.SUPABASE_ANON_KEY ||
-      process.env.SUPABASE_SERVICE_ROLE_KEY ||
       "";
+    // Supabase gateway cấm tuyệt đối sb_secret_ trên trình duyệt (Forbidden use of secret API key in browser)
+    const supabaseAnonKey = rawAnonKey.startsWith("sb_secret_") ? "" : rawAnonKey;
 
     return NextResponse.json({
       success: true,

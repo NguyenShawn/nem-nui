@@ -64,9 +64,11 @@ export function getSupabaseBrowserClient(overrideConfig?: { url?: string; anonKe
   if (typeof window === "undefined") {
     return null;
   }
-  if (overrideConfig?.url && overrideConfig?.anonKey) {
+  const isValidAnonKey = (k?: string) => Boolean(k && !k.startsWith("sb_secret_"));
+
+  if (overrideConfig?.url && isValidAnonKey(overrideConfig.anonKey)) {
     if (!browserClient) {
-      browserClient = createClient(overrideConfig.url, overrideConfig.anonKey, {
+      browserClient = createClient(overrideConfig.url, overrideConfig.anonKey!, {
         auth: { persistSession: true, autoRefreshToken: true },
         realtime: { params: { eventsPerSecond: 10 } },
       });
@@ -75,7 +77,8 @@ export function getSupabaseBrowserClient(overrideConfig?: { url?: string; anonKe
   }
   if (!browserClient) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+    const rawKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+    const anonKey = isValidAnonKey(rawKey) ? rawKey : undefined;
     if (url && anonKey) {
       browserClient = createClient(url, anonKey, {
         auth: { persistSession: true, autoRefreshToken: true },
