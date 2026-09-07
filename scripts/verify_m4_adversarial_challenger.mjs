@@ -406,7 +406,10 @@ async function runAdversarialHarness() {
       customerName: "Khách Đơn Đúng 150k",
       phone: phoneCod150k,
       address: "123 Cách Mạng Tháng 8, Quận 3",
-      items: [{ id: "bun-nem-nuong", qty: 3 }], // 45k * 3 = 135k + 15k ship = 150k
+      items: [
+        { id: "bun-nem-nuong", qty: 3 }, // 35k * 3 = 105k
+        { id: "banh-trang-cuon-nem", qty: 1 }, // 30k * 1 = 30k -> subtotal 135k + 15k ship = 150k
+      ],
       paymentMethod: "cod",
       note: "Ghi chú ban đầu",
     }),

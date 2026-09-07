@@ -128,7 +128,7 @@ async function runEmpiricalChallenge() {
       // Calculate expected financial total
       const bunQty = 1 + ((res.idx - 1) % 3);
       const traQty = 1 + ((res.idx - 1) % 2);
-      const expectedSubtotal = 45000 * bunQty + 15000 * traQty;
+      const expectedSubtotal = 35000 * bunQty + 15000 * traQty;
       const expectedTotal = expectedSubtotal + SHOP_CONFIG.shippingFee;
 
       totalExpectedRevenue += expectedTotal;
@@ -501,7 +501,7 @@ async function runEmpiricalChallenge() {
   });
   const resTamperedPrice = await orderApiRoute(reqTamperedPrice);
   const bodyTamperedPrice = await resTamperedPrice.json();
-  const expectedOfficialTotal = 45000 + SHOP_CONFIG.shippingFee; // 60,000đ
+  const expectedOfficialTotal = 35000 + SHOP_CONFIG.shippingFee; // 50,000đ
   assert(
     bodyTamperedPrice.total === expectedOfficialTotal,
     `Server overrides client-tampered price: calculated total is ${bodyTamperedPrice.total}đ (expected ${expectedOfficialTotal}đ)`

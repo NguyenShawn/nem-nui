@@ -39,7 +39,6 @@ export function PrivacyConsentCheckbox({
             type="checkbox"
             name="privacyConsent"
             checked={checked}
-            defaultChecked={defaultChecked ? undefined : false}
             onChange={(e) => onChange(e.target.checked)}
             required={required}
             disabled={disabled}
