@@ -62,7 +62,8 @@ export async function PATCH(req: NextRequest) {
       return createUnauthorizedResponse("Mã PIN quản lý không chính xác.");
     }
 
-    if (!code) {
+    const cleanCode = code ? String(code).trim().toUpperCase().replace(/^#/, "") : "";
+    if (!cleanCode) {
       return NextResponse.json(
         { error: "Mã đơn hàng không được để trống." },
         { status: 400 }
@@ -84,7 +85,7 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const currentOrder = await getOrderByCode(code);
+    const currentOrder = await getOrderByCode(cleanCode);
     if (!currentOrder) {
       return NextResponse.json(
         { error: "Không tìm thấy đơn hàng." },
@@ -94,7 +95,7 @@ export async function PATCH(req: NextRequest) {
 
     const previousStatus = currentOrder.status;
 
-    const success = await updateOrderStatusInDb(code, status, reason);
+    const success = await updateOrderStatusInDb(cleanCode, status, reason);
     if (!success) {
       return NextResponse.json(
         { error: "Không tìm thấy đơn hàng hoặc cập nhật thất bại." },
@@ -176,14 +177,15 @@ export async function DELETE(req: NextRequest) {
       });
     }
 
-    if (!code) {
+    const cleanCode = code ? String(code).trim().toUpperCase().replace(/^#/, "") : "";
+    if (!cleanCode) {
       return NextResponse.json(
         { error: "Vui lòng cung cấp mã đơn hàng cần xóa." },
         { status: 400 }
       );
     }
 
-    const success = await deleteOrderFromDb(code);
+    const success = await deleteOrderFromDb(cleanCode);
     if (!success) {
       return NextResponse.json(
         { error: "Không tìm thấy đơn hàng cần xóa hoặc xóa thất bại." },
@@ -193,7 +195,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Đã xóa vĩnh viễn đơn hàng #${code}.`,
+      message: `Đã xóa vĩnh viễn đơn hàng #${cleanCode}.`,
     });
   } catch (error: any) {
     console.error("Lỗi DELETE /api/admin/orders:", error);

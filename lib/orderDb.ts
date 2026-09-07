@@ -438,7 +438,8 @@ export async function updateOrderStatusInDb(
   newStatus: OrderStatus,
   cancelReason?: string | null
 ): Promise<boolean> {
-  const currentOrder = await getOrderByCode(code);
+  const cleanCode = code ? String(code).trim().toUpperCase().replace(/^#/, "") : "";
+  const currentOrder = await getOrderByCode(cleanCode);
   let updatedNote = currentOrder?.note || "";
 
   if (cancelReason) {
@@ -450,7 +451,7 @@ export async function updateOrderStatusInDb(
   let success = false;
 
   // Cập nhật In-memory
-  const memIdx = inMemoryOrders.findIndex((o) => o.code === code);
+  const memIdx = inMemoryOrders.findIndex((o) => (o.code || "").toUpperCase() === cleanCode);
   if (memIdx !== -1) {
     inMemoryOrders[memIdx].status = newStatus;
     if (cancelReason) {
@@ -471,7 +472,7 @@ export async function updateOrderStatusInDb(
         updatePayload.cancel_reason = cancelReason;
       }
 
-      const { error } = await supabaseAdmin.from("orders").update(updatePayload).eq("code", code);
+      const { error } = await supabaseAdmin.from("orders").update(updatePayload).eq("code", cleanCode);
       if (!error) {
         success = true;
       } else {
@@ -703,6 +704,9 @@ export async function reconcileOrderPayment(
  * Tra cứu thông tin đơn hàng cụ thể theo mã đơn
  */
 export async function getOrderByCode(code: string): Promise<OrderRecord | null> {
+  const cleanCode = code ? String(code).trim().toUpperCase().replace(/^#/, "") : "";
+  if (!cleanCode) return null;
+
   if (isSupabaseConfigured && supabaseAdmin) {
     try {
       const { data, error } = await supabaseAdmin
@@ -719,7 +723,7 @@ export async function getOrderByCode(code: string): Promise<OrderRecord | null> 
             subtotal
           )
         `)
-        .eq("code", code)
+        .eq("code", cleanCode)
         .single();
 
       if (!error && data) {
@@ -763,13 +767,64 @@ export async function getOrderByCode(code: string): Promise<OrderRecord | null> 
           created_at: data.created_at,
         };
       }
+
+      // Resilient fallback nếu bảng order_items chưa thiết lập quan hệ FK (PGRST200)
+      if (error) {
+        console.warn("[OrderDb] getOrderByCode quan hệ order_items thất bại, kích hoạt fallback select trực tiếp:", error.message);
+        const { data: fallbackData, error: fallbackError } = await supabaseAdmin
+          .from("orders")
+          .select("*")
+          .eq("code", cleanCode)
+          .single();
+
+        if (!fallbackError && fallbackData) {
+          let extractedCancelReason = fallbackData.cancel_reason || null;
+          if (!extractedCancelReason && fallbackData.note && fallbackData.note.includes("[Lý do hủy:")) {
+            const match = fallbackData.note.match(/\[Lý do hủy:\s*([^\]]+)\]/);
+            if (match) extractedCancelReason = match[1].trim();
+          }
+
+          const isMomoConfirmed = Boolean(
+            fallbackData.momo_confirmed || (fallbackData.note && fallbackData.note.includes("[Đã báo CK MoMo]"))
+          );
+
+          let parsedItems: OrderItemPayload[] = [];
+          if (Array.isArray(fallbackData.items)) {
+            parsedItems = fallbackData.items;
+          } else if (typeof fallbackData.items === "string") {
+            try {
+              parsedItems = JSON.parse(fallbackData.items);
+            } catch {
+              parsedItems = [];
+            }
+          }
+
+          return {
+            id: fallbackData.id,
+            code: fallbackData.code,
+            customer_name: fallbackData.customer_name,
+            phone: fallbackData.phone,
+            address: fallbackData.address,
+            note: fallbackData.note,
+            items: parsedItems,
+            total: fallbackData.total,
+            payment_method: fallbackData.payment_method as PaymentMethod,
+            status: fallbackData.status as OrderStatus,
+            cancel_reason: extractedCancelReason,
+            momo_confirmed: isMomoConfirmed,
+            transaction_id: fallbackData.transaction_id || null,
+            paid_at: fallbackData.paid_at || null,
+            created_at: fallbackData.created_at,
+          };
+        }
+      }
     } catch (ex) {
       console.error("[OrderDb] Lỗi tra cứu đơn hàng theo mã:", ex);
     }
   }
 
   // Fallback in-memory
-  return inMemoryOrders.find((o) => o.code === code) || null;
+  return inMemoryOrders.find((o) => (o.code || "").toUpperCase() === cleanCode) || null;
 }
 
 /**
