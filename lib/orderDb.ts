@@ -472,7 +472,16 @@ export async function updateOrderStatusInDb(
         updatePayload.cancel_reason = cancelReason;
       }
 
-      const { error } = await supabaseAdmin.from("orders").update(updatePayload).eq("code", cleanCode);
+      let { error } = await supabaseAdmin.from("orders").update(updatePayload).eq("code", cleanCode);
+
+      // Resilient fallback nếu bảng orders chưa có cột cancel_reason (PGRST204)
+      if (error && (error.code === "PGRST204" || (typeof error.message === "string" && error.message.includes("cancel_reason")))) {
+        console.warn("[OrderDb] Bảng orders chưa có cột cancel_reason, kích hoạt fallback update chỉ với status và note:", error.message);
+        delete updatePayload.cancel_reason;
+        const retryRes = await supabaseAdmin.from("orders").update(updatePayload).eq("code", cleanCode);
+        error = retryRes.error;
+      }
+
       if (!error) {
         success = true;
       } else {
