@@ -399,3 +399,24 @@ rg "adminPin" .next/static/
 > - 1 kịch bản tích hợp vào `tests/e2e/tier4_scenarios.mjs`
 > 
 > Tuyệt đối không xóa bỏ các test cũ để đảm bảo không phát sinh lỗi hồi quy (Regression Bugs).
+
+---
+
+## 11. Hướng Dẫn Cấu Hình Môi Trường & Discord Webhook (Private Ops Guide)
+
+### 1. Tạo Webhook Discord (Thay thế Telegram Bot)
+1. Trong ứng dụng Discord, chọn máy chủ (Server) và kênh văn bản (Channel) bạn muốn nhận thông báo đơn hàng (ví dụ: `#don-hang-moi`).
+2. Nhấp vào icon bánh răng **Cài đặt Kênh (Edit Channel)** -> chọn tab **Tích hợp (Integrations)**.
+3. Chọn **Webhook** -> bấm **Tạo Webhook (New Webhook)**.
+4. Đặt tên bot (ví dụ: `Nem Núi Kitchen Bot`), chọn kênh rồi nhấn **Sao chép URL Webhook (Copy Webhook URL)**.
+5. Dán URL này vào biến môi trường `DISCORD_WEBHOOK_URL` trong file `.env.local`:
+   ```env
+   DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/1234567890/abcdef..."
+   ```
+
+### 2. Cấu hình Supabase Realtime
+1. Đăng nhập Supabase Dashboard -> chọn Project của bạn -> vào **Project Settings** -> **API**.
+2. Sao chép **Project URL** và gán vào `SUPABASE_URL` cũng như `NEXT_PUBLIC_SUPABASE_URL`.
+3. Sao chép **service_role secret key** và gán vào `SUPABASE_SERVICE_ROLE_KEY`.
+4. Sao chép **anon public key** và gán vào `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+5. Vào **SQL Editor**, dán toàn bộ script trong `supabase/schema.sql` và bấm **Run** để khởi tạo database 3NF và cấp quyền Realtime publication.

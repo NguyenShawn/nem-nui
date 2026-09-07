@@ -47,3 +47,6 @@ Thumbs.db
 
 # TypeScript Build Info
 *.tsbuildinfo
+
+# Private Documentation (Hide README from GitHub Repo Home)
+README.md
