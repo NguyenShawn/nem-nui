@@ -29,10 +29,10 @@ export function HeroSection({ onScrollToForm, onScrollToDeal }: HeroSectionProps
             {/* 1. Restrained Announcement Pill */}
             <button
               onClick={onScrollToDeal}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-100/70 hover:bg-orange-100 text-orange-950 border border-orange-200/90 transition-all text-xs font-semibold mb-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-600 shadow-2xs group"
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-100/80 hover:bg-orange-100 text-orange-950 border border-orange-200 transition-all text-xs font-semibold mb-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-600 shadow-2xs group"
             >
               <span className="w-2 h-2 rounded-full bg-orange-600 animate-pulse shrink-0" />
-              <span className="font-bold text-orange-800">Chính sách đối tác:</span>
+              <span className="font-bold text-orange-800 uppercase tracking-wider text-[11px]">Chính sách đối tác:</span>
               <span className="text-stone-700 group-hover:text-stone-900 transition-colors">
                 Nhận Kit Mẫu Thử & Báo giá sỉ trực tiếp
               </span>
@@ -47,8 +47,7 @@ export function HeroSection({ onScrollToForm, onScrollToDeal }: HeroSectionProps
 
             {/* 3. Subtext (Concise, Under 25 Words) */}
             <p className="text-base sm:text-lg text-stone-600 leading-relaxed mb-7 max-w-xl font-normal">
-              Thịt nạc vai mỡ tảng 8:2 nướng xém cạnh, mềm mọng nước không khô xác. Bao đổi trả tận
-              nơi, hỗ trợ công thức nước chấm độc quyền cho quán ăn và tiệc nhỏ.
+              Thịt <strong className="text-stone-900 font-bold">nạc vai mỡ tảng 8:2</strong> nướng xém cạnh, mềm mọng nước không khô xác. <strong className="text-stone-900 font-bold">Bao đổi trả tận nơi 1:1</strong>, hỗ trợ công thức nước chấm độc quyền cho quán ăn và tiệc nhỏ.
             </p>
 
             {/* 4. Dual CTAs */}
@@ -79,7 +78,7 @@ export function HeroSection({ onScrollToForm, onScrollToDeal }: HeroSectionProps
             <div className="mt-5 flex items-center flex-wrap gap-x-5 gap-y-2 text-xs text-stone-600 font-medium">
               <span className="inline-flex items-center gap-1.5">
                 <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5] shrink-0" />
-                <span>Mẫu thử miễn phí tận nơi</span>
+                <span>Mẫu thử tận nơi</span>
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5] shrink-0" />
@@ -115,6 +114,11 @@ export function HeroSection({ onScrollToForm, onScrollToDeal }: HeroSectionProps
                   showVideo ? "opacity-100" : "opacity-0 pointer-events-none"
                 }`}
               />
+              {/* Subtle visual badge overlay */}
+              <div className="absolute bottom-3 left-3 bg-stone-900/85 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs text-white font-semibold flex items-center gap-2 border border-white/10 shadow-sm pointer-events-none">
+                <Flame className="w-3.5 h-3.5 text-orange-400 fill-orange-400 shrink-0" />
+                <span>Nạc mỡ 8:2 • Nướng than hoa</span>
+              </div>
             </div>
             {/* Clean, Honest Caption */}
             <p className="mt-3 text-xs text-stone-500 text-center font-medium flex items-center justify-center gap-1.5">

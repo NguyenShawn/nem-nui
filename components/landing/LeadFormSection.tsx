@@ -143,7 +143,7 @@ export function LeadFormSection() {
                 {/* Badge */}
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-800 border border-orange-200/80 mb-4">
                   <Flame className="w-3.5 h-3.5 text-orange-600 fill-orange-500" />
-                  <span>Kit Mẫu Thử Thẩm Định Vị</span>
+                  <span className="uppercase tracking-wider text-[11px]">Trải nghiệm trước khi nhập sỉ</span>
                 </div>
 
                 {/* Headline */}
@@ -154,7 +154,7 @@ export function LeadFormSection() {
                 {/* Description */}
                 <p className="text-sm sm:text-base text-stone-600 leading-relaxed mb-5 font-normal">
                   Để bạn an tâm về chất lượng trước khi nhập số lượng lớn, xưởng Nem Núi hỗ trợ phần
-                  <strong> Kit Mẫu Thử trải nghiệm trợ giá chỉ 25.000đ</strong> (3 cây nướng than hoa + hũ sốt bí truyền).
+                  <strong className="text-stone-900"> Kit Mẫu Thử trải nghiệm trợ giá chỉ 25.000đ</strong> (3 cây nướng than hoa + hũ sốt bí truyền).
                   Giao nóng ăn liền trong 2h như món ăn thường.
                 </p>
 
@@ -168,7 +168,7 @@ export function LeadFormSection() {
                     sizes="(max-width: 1024px) 100vw, 550px"
                     priority
                   />
-                  <div className="absolute bottom-2.5 left-2.5 bg-stone-900/85 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs text-white font-semibold flex items-center gap-2">
+                  <div className="absolute bottom-2.5 left-2.5 bg-stone-900/85 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs text-white font-semibold flex items-center gap-2 border border-white/10">
                     <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                     <span>Kit mẫu 3 cây + sốt (Trợ giá 25.000đ)</span>
                   </div>
@@ -177,32 +177,32 @@ export function LeadFormSection() {
                 {/* 2 Gift Items Details */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
                   {/* Item 1 */}
-                  <div className="bg-white rounded-xl p-3.5 border border-stone-200/90 shadow-2xs">
+                  <div className="bg-white rounded-xl p-3.5 border border-stone-200/90 shadow-2xs relative overflow-hidden">
                     <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-bold text-stone-500 uppercase tracking-wider text-[11px]">Mẫu thử 01</span>
+                      <span className="font-bold text-stone-400 uppercase tracking-wider text-[10px]">Món thẩm định 01</span>
                       <span className="font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-md text-[11px]">
                         Trợ giá 25.000đ
                       </span>
                     </div>
-                    <p className="text-sm font-bold text-stone-900 mb-0.5">Kit nem nướng (3 cây)</p>
+                    <p className="text-sm font-bold text-stone-900 mb-0.5">3 Cây Nem Nướng Mật</p>
                     <p className="text-xs text-stone-600 mb-2">Chuẩn 60g/cây, nạc mỡ 8:2 nướng than mọng nước.</p>
-                    <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-xs">
+                    <div className="pt-2 border-t border-dashed border-stone-200 flex items-center justify-between text-xs">
                       <span className="text-stone-400">Quy cách:</span>
                       <span className="font-bold text-orange-700">Nướng nóng ăn liền</span>
                     </div>
                   </div>
 
                   {/* Item 2 */}
-                  <div className="bg-white rounded-xl p-3.5 border border-stone-200/90 shadow-2xs">
+                  <div className="bg-white rounded-xl p-3.5 border border-stone-200/90 shadow-2xs relative overflow-hidden">
                     <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-bold text-stone-500 uppercase tracking-wider text-[11px]">Mẫu thử 02</span>
+                      <span className="font-bold text-stone-400 uppercase tracking-wider text-[10px]">Món thẩm định 02</span>
                       <span className="font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md text-[11px]">
-                        Tặng kèm
+                        Tặng kèm 0đ
                       </span>
                     </div>
-                    <p className="text-sm font-bold text-stone-900 mb-0.5">Hũ sốt chấm bí truyền</p>
+                    <p className="text-sm font-bold text-stone-900 mb-0.5">Hũ Sốt Chấm Bí Truyền</p>
                     <p className="text-xs text-stone-600 mb-2">Pha sẵn vị mè rang béo bùi + Cẩm nang cost 65%.</p>
-                    <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-xs">
+                    <div className="pt-2 border-t border-dashed border-stone-200 flex items-center justify-between text-xs">
                       <span className="text-stone-400">Đặc quyền:</span>
                       <span className="font-bold text-emerald-700">Hoàn tiền khi nhập sỉ</span>
                     </div>
@@ -244,7 +244,14 @@ export function LeadFormSection() {
               <div>
                 {/* Form Heading */}
                 <div className="mb-4">
-                  <h3 className="text-xl sm:text-2xl font-black text-stone-900 mb-1.5 tracking-tight">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                      Phản hồi Zalo trong 10 phút
+                    </span>
+                    <span className="text-[11px] text-stone-400 font-medium">Bảo mật theo NĐ 13/2023</span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-black text-stone-900 mb-1 tracking-tight">
                     Đăng ký nhận Bảng Báo Giá Sỉ tận gốc
                   </h3>
                   <p className="text-xs sm:text-sm text-stone-500">
