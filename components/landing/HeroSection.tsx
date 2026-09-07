@@ -10,15 +10,33 @@ interface HeroSectionProps {
   onScrollToDeal: () => void;
 }
 
-export function HeroSection({ onScrollToForm, onScrollToDeal }: HeroSectionProps) {
-  const [showVideo, setShowVideo] = useState(false);
+const HERO_PHOTOS = [
+  {
+    id: "ban-tiec",
+    src: "/assets/image1.jpg",
+    alt: "Bàn tiệc nem nướng mọng mật cuốn bánh tráng rau sống Nem Núi",
+    label: "Bàn tiệc cuốn",
+    badge: "Nạc mỡ 8:2 • Cuốn bánh tráng",
+  },
+  {
+    id: "met-nem",
+    src: "/assets/image7.jpg",
+    alt: "Mẹt nem nướng 6 xiên than hoa kèm rau thơm và nước chấm gia truyền",
+    label: "Mẹt nem 6 xiên",
+    badge: "Than hoa • Mẹt 6 xiên đầy đặn",
+  },
+  {
+    id: "dia-nem",
+    src: "/assets/image4.jpg",
+    alt: "Đĩa nem nướng xém cạnh kèm chén sốt chấm bí truyền Nem Núi",
+    label: "Đĩa nem & sốt",
+    badge: "Xém cạnh • Sốt bí truyền",
+  },
+];
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setShowVideo((prev) => !prev);
-    }, 60000); // Tự động chuyển đổi sau mỗi 1 phút
-    return () => clearInterval(timer);
-  }, []);
+export function HeroSection({ onScrollToForm, onScrollToDeal }: HeroSectionProps) {
+  const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+  const [showVideo, setShowVideo] = useState(false);
 
   return (
     <section className="pt-24 sm:pt-28 pb-12 sm:pb-16 bg-[#FFFBEB] border-b border-stone-200/60">
@@ -91,39 +109,98 @@ export function HeroSection({ onScrollToForm, onScrollToDeal }: HeroSectionProps
             </div>
           </div>
 
-          {/* Right Column: Balanced Food Visual */}
+          {/* Right Column: Balanced Food Visual & Gallery */}
           <div className="lg:col-span-5 flex flex-col items-center">
             <div className="relative w-full rounded-2xl overflow-hidden border border-stone-200/90 bg-stone-900 shadow-lg aspect-[4/4.2] max-h-[460px]">
-              <Image
-                src="/assets/image1.jpg"
-                alt="Bàn tiệc nem nướng mọng mật cuốn bánh tráng rau sống thơm ngon Nem Núi"
-                fill
-                className={`object-cover transition-opacity duration-1000 ${
-                  showVideo ? "opacity-0" : "opacity-100"
-                }`}
-                sizes="(max-width: 768px) 100vw, 480px"
-                priority
-              />
+              {/* Photo layer */}
+              {HERO_PHOTOS.map((photo, idx) => (
+                <Image
+                  key={photo.id}
+                  src={photo.src}
+                  alt={photo.alt}
+                  fill
+                  className={`object-cover transition-opacity duration-500 ${
+                    !showVideo && activePhotoIdx === idx ? "opacity-100" : "opacity-0 pointer-events-none"
+                  }`}
+                  sizes="(max-width: 768px) 100vw, 480px"
+                  priority={idx === 0}
+                />
+              ))}
+
+              {/* Video layer */}
               <video
                 src="/assets/nem-video.mp4"
                 autoPlay
                 loop
                 muted
                 playsInline
-                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
                   showVideo ? "opacity-100" : "opacity-0 pointer-events-none"
                 }`}
               />
-              {/* Subtle visual badge overlay */}
+
+              {/* Dynamic badge overlay */}
               <div className="absolute bottom-3 left-3 bg-stone-900/85 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs text-white font-semibold flex items-center gap-2 border border-white/10 shadow-sm pointer-events-none">
                 <Flame className="w-3.5 h-3.5 text-orange-400 fill-orange-400 shrink-0" />
-                <span>Nạc mỡ 8:2 • Nướng than hoa</span>
+                <span>
+                  {showVideo ? "Nướng than hoa xèo xèo thực tế" : HERO_PHOTOS[activePhotoIdx].badge}
+                </span>
               </div>
             </div>
+
+            {/* Interactive Angle Switcher Strip */}
+            <div className="flex items-center justify-center gap-2 mt-3 w-full">
+              {HERO_PHOTOS.map((photo, idx) => {
+                const isActive = !showVideo && activePhotoIdx === idx;
+                return (
+                  <button
+                    key={photo.id}
+                    type="button"
+                    onClick={() => {
+                      setActivePhotoIdx(idx);
+                      setShowVideo(false);
+                    }}
+                    className={`relative rounded-xl overflow-hidden border-2 transition-all p-0.5 focus:outline-none ${
+                      isActive
+                        ? "border-orange-600 ring-2 ring-orange-500/20 scale-105 shadow-sm"
+                        : "border-stone-200/90 hover:border-stone-400 opacity-70 hover:opacity-100"
+                    }`}
+                    title={photo.label}
+                  >
+                    <div className="relative w-12 h-9 rounded-lg overflow-hidden bg-stone-100">
+                      <Image
+                        src={photo.src}
+                        alt={photo.label}
+                        fill
+                        className="object-cover"
+                        sizes="48px"
+                      />
+                    </div>
+                  </button>
+                );
+              })}
+
+              {/* Video switch button */}
+              <button
+                type="button"
+                onClick={() => setShowVideo((prev) => !prev)}
+                className={`relative rounded-xl overflow-hidden border-2 transition-all p-0.5 focus:outline-none ${
+                  showVideo
+                    ? "border-orange-600 ring-2 ring-orange-500/20 scale-105 shadow-sm"
+                    : "border-stone-200/90 hover:border-stone-400 opacity-70 hover:opacity-100"
+                }`}
+                title="Xem video nướng"
+              >
+                <div className="relative w-12 h-9 rounded-lg overflow-hidden bg-stone-900 flex items-center justify-center text-orange-400 text-[11px] font-bold">
+                  ▶ Video
+                </div>
+              </button>
+            </div>
+
             {/* Clean, Honest Caption */}
-            <p className="mt-3 text-xs text-stone-500 text-center font-medium flex items-center justify-center gap-1.5">
+            <p className="mt-2 text-[11px] text-stone-500 text-center font-medium flex items-center justify-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
-              <span>Giao nóng than hoa trong 2h hoặc cấp đông sâu 30 ngày</span>
+              <span>Chạm ảnh để xem thực tế bàn tiệc, mẹt than hoa và chén sốt chấm</span>
             </p>
           </div>
         </div>

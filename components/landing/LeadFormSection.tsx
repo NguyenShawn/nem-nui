@@ -177,15 +177,30 @@ export function LeadFormSection() {
                 {/* 2 Gift Items Details */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
                   {/* Item 1 */}
-                  <div className="bg-white rounded-xl p-3.5 border border-stone-200/90 shadow-2xs relative overflow-hidden">
-                    <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-bold text-stone-400 uppercase tracking-wider text-[10px]">Món thẩm định 01</span>
-                      <span className="font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-md text-[11px]">
-                        Trợ giá 25.000đ
-                      </span>
+                  <div className="bg-white rounded-xl p-3 border border-stone-200/90 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between text-xs mb-2">
+                        <span className="font-bold text-stone-400 uppercase tracking-wider text-[10px]">Món thẩm định 01</span>
+                        <span className="font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-md text-[11px]">
+                          Trợ giá 25.000đ
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2.5 mb-2">
+                        <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 border border-stone-100 bg-stone-50">
+                          <Image
+                            src="/assets/image3.jpg"
+                            alt="3 Cây Nem Nướng Mật Mẫu Thử"
+                            fill
+                            className="object-contain p-0.5"
+                            sizes="48px"
+                          />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-stone-900 leading-snug">3 Cây Nem Nướng Mật</p>
+                          <p className="text-[11px] text-stone-500">Chuẩn 60g/cây, nạc mỡ 8:2</p>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-sm font-bold text-stone-900 mb-0.5">3 Cây Nem Nướng Mật</p>
-                    <p className="text-xs text-stone-600 mb-2">Chuẩn 60g/cây, nạc mỡ 8:2 nướng than mọng nước.</p>
                     <div className="pt-2 border-t border-dashed border-stone-200 flex items-center justify-between text-xs">
                       <span className="text-stone-400">Quy cách:</span>
                       <span className="font-bold text-orange-700">Nướng nóng ăn liền</span>
@@ -193,15 +208,30 @@ export function LeadFormSection() {
                   </div>
 
                   {/* Item 2 */}
-                  <div className="bg-white rounded-xl p-3.5 border border-stone-200/90 shadow-2xs relative overflow-hidden">
-                    <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-bold text-stone-400 uppercase tracking-wider text-[10px]">Món thẩm định 02</span>
-                      <span className="font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md text-[11px]">
-                        Tặng kèm 0đ
-                      </span>
+                  <div className="bg-white rounded-xl p-3 border border-stone-200/90 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between text-xs mb-2">
+                        <span className="font-bold text-stone-400 uppercase tracking-wider text-[10px]">Món thẩm định 02</span>
+                        <span className="font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md text-[11px]">
+                          Tặng kèm 0đ
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2.5 mb-2">
+                        <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 border border-stone-100 bg-stone-50">
+                          <Image
+                            src="/assets/image4.jpg"
+                            alt="Hũ Sốt Chấm Bí Truyền"
+                            fill
+                            className="object-cover"
+                            sizes="48px"
+                          />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-stone-900 leading-snug">Hũ Sốt Chấm Bí Truyền</p>
+                          <p className="text-[11px] text-stone-500">Vị mè rang béo bùi + Cẩm nang</p>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-sm font-bold text-stone-900 mb-0.5">Hũ Sốt Chấm Bí Truyền</p>
-                    <p className="text-xs text-stone-600 mb-2">Pha sẵn vị mè rang béo bùi + Cẩm nang cost 65%.</p>
                     <div className="pt-2 border-t border-dashed border-stone-200 flex items-center justify-between text-xs">
                       <span className="text-stone-400">Đặc quyền:</span>
                       <span className="font-bold text-emerald-700">Hoàn tiền khi nhập sỉ</span>
